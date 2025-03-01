@@ -18,8 +18,6 @@ const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const MunicipalDashboard = lazy(() => import('./pages/MunicipalCorporation/MunicipalDashboard'));
 const AreaCounsellorDashboard = lazy(() => import('./pages/AreaCounsellor/AreaCounsellorDashboard'));
-const CitizenDashboard = lazy(() => import('./pages/Citizen/CitizenDashboard'));
-
 function App() {
     return (
         <HelmetProvider>
@@ -54,7 +52,6 @@ function App() {
                     <Routes>
                         <Route path="/" element={<Home />} />
                         <Route path="/feed" element={<CitizenFeed />} />
-                        <Route path="/citizenfeed" element={<CitizenFeed />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/notifications" element={<Notifications />} />
                         <Route path="/my-reports" element={<MyReports />} />
@@ -77,9 +74,9 @@ function App() {
                                 <AreaCounsellorDashboard />
                             </ProtectedRoute>
                         } />
-                        <Route path="/citizen-dashboard" element={
+                        <Route path="/citizenfeed" element={
                             <ProtectedRoute allowedRoles={['citizen', 'organization']}>
-                                <CitizenDashboard />
+                                <CitizenFeed />
                             </ProtectedRoute>
                         } />
                         <Route path="*" element={
