@@ -1,23 +1,39 @@
 // frontend/src/App.jsx
 import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { HelmetProvider } from 'react-helmet-async';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import { Toaster } from 'react-hot-toast';
+import L from 'leaflet';
 import { Oval } from 'react-loader-spinner';
 import ProtectedRoute from './components/ProtectedRoutes';
 
 const Home = lazy(() => import('./pages/Home'));
+const CitizenFeed = lazy(() => import('./pages/Citizen/CitizenFeed'));
+const Profile = lazy(() => import('./pages/Citizen/Profile'));
+const Notifications = lazy(() => import('./pages/Citizen/Notifications'));
+const MyReports = lazy(() => import('./pages/Citizen/MyReports'));
 const SignUp = lazy(() => import('./pages/SignUp'));
 const Login = lazy(() => import('./pages/Login'));
 const AdminLogin = lazy(() => import('./pages/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const MunicipalDashboard = lazy(() => import('./pages/MunicipalCorporation/MunicipalDashboard'));
 const AreaCounsellorDashboard = lazy(() => import('./pages/AreaCounsellor/AreaCounsellorDashboard'));
-const CitizenDashboard = lazy(() => import('./pages/Citizen/CitizenDashboard'));
-
 function App() {
     return (
         <HelmetProvider>
+            <Helmet>
+                <link 
+                    rel="stylesheet" 
+                    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+                    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+                    crossOrigin=""
+                />
+                <script 
+                    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+                    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+                    crossOrigin=""
+                ></script>
+            </Helmet>
             <BrowserRouter>
                 <Toaster position="top-right" />
                 <Suspense fallback={
@@ -35,6 +51,11 @@ function App() {
                 }>
                     <Routes>
                         <Route path="/" element={<Home />} />
+                        <Route path="/feed" element={<CitizenFeed />} />
+                        <Route path="/profile" element={<Profile />} />
+                        <Route path="/notifications" element={<Notifications />} />
+                        <Route path="/my-reports" element={<MyReports />} />
+                        <Route path="/issue/:id" element={<CitizenFeed />} />
                         <Route path="/signup" element={<SignUp />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/admin/login" element={<AdminLogin />} />
@@ -53,9 +74,9 @@ function App() {
                                 <AreaCounsellorDashboard />
                             </ProtectedRoute>
                         } />
-                        <Route path="/citizen-dashboard" element={
+                        <Route path="/citizenfeed" element={
                             <ProtectedRoute allowedRoles={['citizen', 'organization']}>
-                                <CitizenDashboard />
+                                <CitizenFeed />
                             </ProtectedRoute>
                         } />
                         <Route path="*" element={

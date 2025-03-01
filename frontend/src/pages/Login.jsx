@@ -44,7 +44,7 @@ const LoginPage = () => {
                     navigate('/counsellor-dashboard');
                 }
             } else if (role === 'organization' || role === 'citizen') {
-                navigate('/citizen-dashboard');
+                navigate('/citizenfeed');
             }
         } catch (error) {
             const errorMessage = error.message || 'Login failed. Please check your credentials.';
