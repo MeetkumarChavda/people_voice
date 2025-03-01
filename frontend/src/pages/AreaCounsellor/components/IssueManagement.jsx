@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -14,18 +14,62 @@ import {
   AlertOctagon,
   CheckIcon,
   ClockIcon,
-  Upload
+  Upload,
+  Loader
 } from 'lucide-react';
+import apiClient from '../../../services/api.config';
+import { toast } from 'react-hot-toast';
 
 export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
   const [phaseUpdate, setPhaseUpdate] = useState({
-    status: '',
-    comments: '',
-    proof: [],
-    extendDeadline: false,
-    newDeadline: '',
-    reason: ''
+    verification: {
+      status: issue.phaseDetails?.verification?.status || 'pending',
+      comments: issue.phaseDetails?.verification?.comments || ''
+    },
+    etaDeadline: {
+      initialDeadline: issue.phaseDetails?.etaDeadline?.initialDeadline || '',
+      extendedDeadline: issue.phaseDetails?.etaDeadline?.extendedDeadline || '',
+      isExtended: issue.phaseDetails?.etaDeadline?.isExtended || false,
+      reason: issue.phaseDetails?.etaDeadline?.reason || ''
+    },
+    resolution: {
+      status: issue.phaseDetails?.resolution?.status || 'pending',
+      proof: issue.phaseDetails?.resolution?.proof || [],
+      comments: issue.phaseDetails?.resolution?.comments || ''
+    }
   });
+
+  // Update state when issue changes (modal reopens)
+  useEffect(() => {
+    setPhaseUpdate({
+      verification: {
+        status: issue.phaseDetails?.verification?.status || 'pending',
+        comments: issue.phaseDetails?.verification?.comments || ''
+      },
+      etaDeadline: {
+        initialDeadline: issue.phaseDetails?.etaDeadline?.initialDeadline || '',
+        extendedDeadline: issue.phaseDetails?.etaDeadline?.extendedDeadline || '',
+        isExtended: issue.phaseDetails?.etaDeadline?.isExtended || false,
+        reason: issue.phaseDetails?.etaDeadline?.reason || ''
+      },
+      resolution: {
+        status: issue.phaseDetails?.resolution?.status || 'pending',
+        proof: issue.phaseDetails?.resolution?.proof || [],
+        comments: issue.phaseDetails?.resolution?.comments || ''
+      }
+    });
+  }, [issue]); // Dependency on issue ensures state updates when modal reopens
+
+  // Always allow editing verification phase
+  const canUpdateVerificationPhase = true;
+  
+  // Allow editing ETA phase if issue is verified
+  const canUpdateEtaPhase = issue.phaseDetails?.verification?.status === 'verified' || 
+                           phaseUpdate.verification.status === 'verified';
+  
+  // Allow editing Resolution phase if deadline is set
+  const canUpdateResolutionPhase = (issue.phaseDetails?.etaDeadline?.initialDeadline || 
+                                  phaseUpdate.etaDeadline.initialDeadline) && canUpdateEtaPhase;
 
   const getPhaseStatus = (phase) => {
     if (!issue.phaseDetails) return 'pending';
@@ -42,15 +86,92 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
     }
   };
 
-  const handlePhaseUpdate = () => {
-    onPhaseUpdate(issue._id, issue.currentPhase, phaseUpdate);
+  const handlePhaseUpdate = async () => {
+    try {
+      let phaseData = {};
+      let currentPhase = issue.currentPhase;
+
+      // Handle verification phase
+      if (currentPhase === 'verification') {
+        phaseData = {
+          status: phaseUpdate.verification.status,
+          comments: phaseUpdate.verification.comments,
+          verificationDate: new Date().toISOString()
+        };
+      }
+      // Handle ETA/Deadline phase
+      else if (currentPhase === 'etaDeadline') {
+        if (!phaseUpdate.etaDeadline.initialDeadline) {
+          toast.error('Initial deadline is required');
+          return;
+        }
+        phaseData = {
+          initialDeadline: phaseUpdate.etaDeadline.initialDeadline,
+          isExtended: phaseUpdate.etaDeadline.isExtended,
+          extendedDeadline: phaseUpdate.etaDeadline.extendedDeadline,
+          reason: phaseUpdate.etaDeadline.reason
+        };
+      }
+      // Handle resolution phase
+      else if (currentPhase === 'resolution') {
+        let proofFiles = [];
+        if (phaseUpdate.resolution.proof && phaseUpdate.resolution.proof.length > 0) {
+          proofFiles = await Promise.all(
+            phaseUpdate.resolution.proof.map(async (file) => {
+              if (file instanceof File) {
+                return await convertFileToBase64(file);
+              }
+              return file;
+            })
+          );
+        }
+
+        phaseData = {
+          status: phaseUpdate.resolution.status,
+          comments: phaseUpdate.resolution.comments,
+          proof: proofFiles,
+          resolutionDate: new Date().toISOString()
+        };
+      }
+
+      // Make API call to update phase
+      const response = await apiClient.patch(`/issues/${issue._id}/phase`, {
+        phase: currentPhase,
+        phaseData
+      });
+
+      // Update local state with response data
+      if (response.data) {
+        // Call the parent component's update function with the updated issue
+        await onPhaseUpdate(response.data);
+        toast.success(`Phase updated successfully`);
+        onClose(); // Close modal after successful update
+      }
+
+    } catch (error) {
+      console.error('Error updating phase:', error);
+      toast.error(error.response?.data?.message || 'Failed to update phase');
+    }
+  };
+
+  // Helper function to convert File to base64
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files);
     setPhaseUpdate(prev => ({
       ...prev,
-      proof: [...prev.proof, ...files]
+      resolution: {
+        ...prev.resolution,
+        proof: [...(prev.resolution.proof || []), ...files]
+      }
     }));
   };
 
@@ -116,39 +237,39 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                     Status: {getPhaseStatus('verification')}
                   </p>
                 </div>
-                {issue.currentPhase === 'verification' && (
+                {canUpdateVerificationPhase && (
                   <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setPhaseUpdate(prev => ({
+                    <select
+                      value={phaseUpdate.verification.status}
+                      onChange={(e) => setPhaseUpdate(prev => ({
                         ...prev,
-                        status: 'verified'
+                        verification: {
+                          ...prev.verification,
+                          status: e.target.value
+                        }
                       }))}
-                      className="px-3 py-1 text-sm font-medium rounded-full bg-green-50 text-green-600 hover:bg-green-100"
+                      className="px-3 py-1 text-sm font-medium rounded-lg border border-gray-200"
                     >
-                      Verify
-                    </button>
-                    <button
-                      onClick={() => setPhaseUpdate(prev => ({
-                        ...prev,
-                        status: 'rejected'
-                      }))}
-                      className="px-3 py-1 text-sm font-medium rounded-full bg-red-50 text-red-600 hover:bg-red-100"
-                    >
-                      Reject
-                    </button>
+                      <option value="pending">Pending</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
                   </div>
                 )}
               </div>
-              {issue.currentPhase === 'verification' && (
+              {canUpdateVerificationPhase && (
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Verification Comments
                   </label>
                   <textarea
-                    value={phaseUpdate.comments}
+                    value={phaseUpdate.verification.comments}
                     onChange={(e) => setPhaseUpdate(prev => ({
                       ...prev,
-                      comments: e.target.value
+                      verification: {
+                        ...prev.verification,
+                        comments: e.target.value
+                      }
                     }))}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -168,25 +289,23 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                       ? new Date(issue.phaseDetails.etaDeadline.initialDeadline).toLocaleDateString()
                       : 'Not set'}
                   </p>
-                  {issue.phaseDetails?.etaDeadline?.isExtended && (
-                    <p className="text-sm text-amber-500">
-                      Extended to: {new Date(issue.phaseDetails.etaDeadline.extendedDeadline).toLocaleDateString()}
-                    </p>
-                  )}
                 </div>
               </div>
-              {issue.currentPhase === 'etaDeadline' && (
+              {canUpdateEtaPhase ? (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Set Deadline
+                      Set Initial Deadline
                     </label>
                     <input
                       type="date"
-                      value={phaseUpdate.newDeadline}
+                      value={phaseUpdate.etaDeadline.initialDeadline}
                       onChange={(e) => setPhaseUpdate(prev => ({
                         ...prev,
-                        newDeadline: e.target.value
+                        etaDeadline: {
+                          ...prev.etaDeadline,
+                          initialDeadline: e.target.value
+                        }
                       }))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -197,10 +316,13 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                         <input
                           type="checkbox"
                           id="extendDeadline"
-                          checked={phaseUpdate.extendDeadline}
+                          checked={phaseUpdate.etaDeadline.isExtended}
                           onChange={(e) => setPhaseUpdate(prev => ({
                             ...prev,
-                            extendDeadline: e.target.checked
+                            etaDeadline: {
+                              ...prev.etaDeadline,
+                              isExtended: e.target.checked
+                            }
                           }))}
                           className="mr-2"
                         />
@@ -208,21 +330,47 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                           Extend Deadline (One-time only)
                         </label>
                       </div>
-                      {phaseUpdate.extendDeadline && (
-                        <textarea
-                          value={phaseUpdate.reason}
-                          onChange={(e) => setPhaseUpdate(prev => ({
-                            ...prev,
-                            reason: e.target.value
-                          }))}
-                          placeholder="Reason for extension..."
-                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          rows={2}
-                        />
+                      {phaseUpdate.etaDeadline.isExtended && (
+                        <>
+                          <div className="mb-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Extended Deadline
+                            </label>
+                            <input
+                              type="date"
+                              value={phaseUpdate.etaDeadline.extendedDeadline}
+                              onChange={(e) => setPhaseUpdate(prev => ({
+                                ...prev,
+                                etaDeadline: {
+                                  ...prev.etaDeadline,
+                                  extendedDeadline: e.target.value
+                                }
+                              }))}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <textarea
+                            value={phaseUpdate.etaDeadline.reason}
+                            onChange={(e) => setPhaseUpdate(prev => ({
+                              ...prev,
+                              etaDeadline: {
+                                ...prev.etaDeadline,
+                                reason: e.target.value
+                              }
+                            }))}
+                            placeholder="Reason for extension..."
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                            rows={2}
+                          />
+                        </>
                       )}
                     </div>
                   )}
                 </div>
+              ) : (
+                <p className="text-sm text-amber-600 mt-2">
+                  * Issue must be verified before setting deadlines
+                </p>
               )}
             </div>
 
@@ -237,23 +385,26 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                 </div>
               </div>
 
-              {issue.currentPhase === 'resolution' && (
+              {canUpdateResolutionPhase ? (
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Resolution Status
                     </label>
                     <select
-                      value={phaseUpdate.status}
+                      value={phaseUpdate.resolution.status}
                       onChange={(e) => setPhaseUpdate(prev => ({
                         ...prev,
-                        status: e.target.value
+                        resolution: {
+                          ...prev.resolution,
+                          status: e.target.value
+                        }
                       }))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Select status</option>
+                      <option value="pending">Pending</option>
                       <option value="solved">Solved</option>
-                      <option value="escalated">Escalate to Municipal</option>
+                      <option value="escalated">Escalated</option>
                     </select>
                   </div>
 
@@ -262,10 +413,13 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                       Resolution Comments
                     </label>
                     <textarea
-                      value={phaseUpdate.comments}
+                      value={phaseUpdate.resolution.comments}
                       onChange={(e) => setPhaseUpdate(prev => ({
                         ...prev,
-                        comments: e.target.value
+                        resolution: {
+                          ...prev.resolution,
+                          comments: e.target.value
+                        }
                       }))}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -296,15 +450,40 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                         <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
                       </div>
                     </div>
+                    {/* Display uploaded files */}
+                    {phaseUpdate.resolution.proof && phaseUpdate.resolution.proof.length > 0 && (
+                      <div className="mt-4 grid grid-cols-3 gap-4">
+                        {phaseUpdate.resolution.proof.map((file, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={file instanceof File ? URL.createObjectURL(file) : file}
+                              alt={`Proof ${index + 1}`}
+                              className="w-full h-20 object-cover rounded-lg"
+                            />
+                            <button
+                              onClick={() => {
+                                setPhaseUpdate(prev => ({
+                                  ...prev,
+                                  resolution: {
+                                    ...prev.resolution,
+                                    proof: prev.resolution.proof.filter((_, i) => i !== index)
+                                  }
+                                }));
+                              }}
+                              className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-
-                  <button
-                    onClick={handlePhaseUpdate}
-                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Update Resolution
-                  </button>
                 </div>
+              ) : (
+                <p className="text-sm text-amber-600 mt-2">
+                  * Deadline must be set before updating resolution
+                </p>
               )}
             </div>
           </div>
@@ -313,11 +492,13 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
           {issue.photos && issue.photos.length > 0 && (
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-medium text-gray-900 mb-4">Issue Photos</h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-4"> 
                 {issue.photos.map((photo, index) => (
                   <img
+                    crossOrigin="anonymous"
+
                     key={index}
-                    src={photo}
+                    src={apiClient.defaults.baseURL+`/${photo}` }
                     alt={`Issue photo ${index + 1}`}
                     className="w-full h-32 object-cover rounded-lg"
                   />
@@ -352,13 +533,31 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
               </div>
             </div>
           )}
+
+          {/* Action Buttons */}
+          {issue.currentPhase && (
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePhaseUpdate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Update Phase
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export const IssueCard = ({ issue, onViewDetails }) => {
+export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
   const getStatusColor = (status) => {
     if (!status) return 'text-gray-600 bg-gray-50';
     
@@ -394,16 +593,39 @@ export const IssueCard = ({ issue, onViewDetails }) => {
   }
 
   const {
+    _id,
     title = 'Untitled Issue',
-    location = { address: 'No location specified' },
+    location = { address: 'No location specified', coordinates: { coordinates: [] } },
     status = 'pending',
     currentPhase = 'verification',
     description = 'No description provided',
     createdAt = new Date(),
     upvotes = 0,
     comments = [],
-    photos = []
+    photos = [],
+    reportedBy = { username: 'Anonymous' },
+    phaseDetails = {
+      verification: { status: 'pending' },
+      etaDeadline: { isExtended: false },
+      resolution: { status: 'pending', proof: [] }
+    }
   } = issue;
+
+  const formattedPhotos = photos.map(photo => 
+    photo.startsWith('http') ? photo : `${import.meta.env.VITE_API_URL}/issues/photos/${photo}`
+  );
+
+  const handleViewDetails = async () => {
+    try {
+      // Fetch latest issue data before showing modal
+      const response = await apiClient.get(`/issues/${_id}`);
+      onViewDetails(response.data);
+    } catch (error) {
+      console.error('Error fetching issue details:', error);
+      toast.error('Failed to fetch latest issue details');
+      onViewDetails(issue); // Fallback to current data if fetch fails
+    }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-6">
@@ -412,7 +634,9 @@ export const IssueCard = ({ issue, onViewDetails }) => {
           {getPhaseIcon(currentPhase)}
           <div>
             <h3 className="font-medium text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-500">{location.address}</p>
+            <p className="text-sm text-gray-500">
+              Reported by: {reportedBy.username}
+            </p>
           </div>
         </div>
         <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusColor(status)}`}>
@@ -433,6 +657,24 @@ export const IssueCard = ({ issue, onViewDetails }) => {
         </div>
       </div>
 
+      {formattedPhotos.length > 0 && (
+        <div className="mb-4">
+          <div className="grid grid-cols-3 gap-2">
+            {formattedPhotos.slice(0, 3).map((photo, index) => (
+              <img
+                crossOrigin="anonymous"
+                key={index}
+                
+                src={photo}
+                
+                alt={`Issue ${index + 1}`}
+                className="w-full h-20 object-cover rounded-lg"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center space-x-4 mb-4">
         <div className="flex items-center text-gray-500">
           <ThumbsUp className="w-4 h-4 mr-1" />
@@ -444,18 +686,20 @@ export const IssueCard = ({ issue, onViewDetails }) => {
         </div>
         <div className="flex items-center text-gray-500">
           <ImageIcon className="w-4 h-4 mr-1" />
-          <span className="text-sm">{photos.length}</span>
+          <span className="text-sm">{formattedPhotos.length}</span>
         </div>
       </div>
 
       <div className="border-t border-gray-100 pt-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-900">Current Phase</p>
-            <p className="text-sm text-gray-500 capitalize">{currentPhase}</p>
+            <p className="text-sm font-medium text-gray-900">Phase: {currentPhase}</p>
+            <p className="text-sm text-gray-500">
+              {phaseDetails[currentPhase]?.status || 'Pending'}
+            </p>
           </div>
           <button 
-            onClick={() => onViewDetails(issue)}
+            onClick={handleViewDetails}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             Manage Issue
@@ -466,7 +710,7 @@ export const IssueCard = ({ issue, onViewDetails }) => {
   );
 };
 
-export const IssueFilters = ({ onFilterChange }) => {
+export const IssueFilters = ({ onFilterChange, isLoading, onRefresh }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     category: 'all',
@@ -483,8 +727,32 @@ export const IssueFilters = ({ onFilterChange }) => {
     onFilterChange(newFilters);
   };
 
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">Issues in Your Area</h2>
+        <div className="flex items-center space-x-2">
+          {isLoading && (
+            <div className="flex items-center text-blue-600">
+              <Loader className="w-4 h-4 mr-2 animate-spin" />
+              <span className="text-sm">Loading issues...</span>
+            </div>
+          )}
+          <button
+            onClick={handleRefresh}
+            className="p-2 text-blue-600 hover:text-blue-700 rounded-full hover:bg-blue-50"
+          >
+            <Activity className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center md:space-x-4">
         <div className="flex-1 mb-4 md:mb-0">
           <div className="relative">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   Activity,
@@ -32,11 +32,197 @@ import {
   User,
   UserCircleIcon,
   Users,
-  XIcon
+  XIcon,
+  MapPinIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import { IssueCard, IssueDetailsModal, IssueFilters } from './components/IssueManagement';
+import apiClient from '../../services/api.config';
+import { toast } from 'react-hot-toast';
+
+// New SetCoordinatesModal Component
+const SetCoordinatesModal = ({ isOpen, onClose, userLocation, setUserLocation, fetchAreaIssues }) => {
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [radius, setRadius] = useState(1); // Default 1 km radius
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+  const circleRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen && !mapRef.current && userLocation) {
+      // Initialize map
+      const map = L.map('coordinates-map').setView([userLocation.lat, userLocation.lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Add marker
+      const marker = L.marker([userLocation.lat, userLocation.lng], { draggable: true }).addTo(map);
+      
+      // Add circle for radius
+      const circle = L.circle([userLocation.lat, userLocation.lng], {
+        radius: radius * 1000, // Convert km to meters
+        fillColor: '#3b82f6',
+        fillOpacity: 0.2,
+        color: '#3b82f6',
+        weight: 1
+      }).addTo(map);
+
+      // Update circle when marker is dragged
+      marker.on('drag', (e) => {
+        const pos = e.target.getLatLng();
+        circle.setLatLng(pos);
+        setUserLocation({ lat: pos.lat, lng: pos.lng });
+      });
+
+      mapRef.current = map;
+      markerRef.current = marker;
+      circleRef.current = circle;
+    }
+
+    // Cleanup function
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+        circleRef.current = null;
+      }
+    };
+  }, [isOpen, userLocation]);
+
+  // Handle radius changes
+  useEffect(() => {
+    if (mapRef.current && markerRef.current && circleRef.current) {
+      const pos = markerRef.current.getLatLng();
+      
+      // Update the circle's radius without removing it
+      circleRef.current.setRadius(radius * 1000);
+
+      // Optional: Fit the map bounds to show the entire circle
+      const bounds = circleRef.current.getBounds();
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [radius]);
+
+  const getUserLocation = () => {
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ lat: latitude, lng: longitude });
+        
+        if (mapRef.current && markerRef.current && circleRef.current) {
+          const newLatLng = [latitude, longitude];
+          mapRef.current.setView(newLatLng, 15);
+          markerRef.current.setLatLng(newLatLng);
+          circleRef.current.setLatLng(newLatLng);
+        }
+        
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        setLocationError('Unable to retrieve your location: ' + error.message);
+        setIsLoadingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    );
+  };
+
+  const handleSave = () => {
+    if (userLocation) {
+      fetchAreaIssues(userLocation, radius);
+    }
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-xl">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-800">Set Area Coordinates</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <XIcon size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <div className="mb-6">
+            <button
+              onClick={getUserLocation}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-all"
+              disabled={isLoadingLocation}
+            >
+              <MapPinIcon size={18} />
+              {isLoadingLocation ? 'Getting Location...' : 'Get Current Location'}
+            </button>
+            {locationError && (
+              <p className="mt-2 text-red-600 text-sm">{locationError}</p>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Coverage Radius (km)
+            </label>
+            <input
+              type="number"
+              min="0.1"
+              max="10"
+              step="0.1"
+              value={radius}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (value >= 0.1 && value <= 10) {
+                  setRadius(value);
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Map Container */}
+          <div id="coordinates-map" className="h-[400px] rounded-lg mb-6" />
+
+          {userLocation && (
+            <div className="mb-6">
+              <h4 className="font-medium text-gray-700 mb-2">Selected Location</h4>
+              <p className="text-sm text-gray-600">
+                Latitude: {userLocation.lat.toFixed(6)}<br />
+                Longitude: {userLocation.lng.toFixed(6)}<br />
+                Radius: {radius} km
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all"
+            >
+              Save Coordinates
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AreaCounsellor = () => {
   const navigate = useNavigate();
@@ -55,6 +241,33 @@ const AreaCounsellor = () => {
   const [statusUpdateModal, setStatusUpdateModal] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Add notifications state
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      message: "New issue reported in your area",
+      timestamp: new Date(),
+      read: false
+    },
+    {
+      id: 2,
+      message: "Issue #123 has been updated",
+      timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      read: true
+    }
+  ]);
+
+  // Add new state variables for location handling
+  const [showSetCoordinatesModal, setShowSetCoordinatesModal] = useState(false);
+  const [userLocation, setUserLocation] = useState(() => {
+    const savedLocation = localStorage.getItem('userLocation');
+    return savedLocation ? JSON.parse(savedLocation) : null;
+  });
+  const [areaIssues, setAreaIssues] = useState([]);
+  const [currentArea, setCurrentArea] = useState(null);
 
   // Dummy Data for Counsellor
   const counsellorData = {
@@ -103,106 +316,110 @@ const AreaCounsellor = () => {
     ]
   };
 
-  // Dummy Issues Data
-  const [issues, setIssues] = useState([
-    {
-      id: "ISS001",
-      title: "Broken Street Light at 5th Cross",
-      category: "Infrastructure",
-      type: "public",
-      priority: "high",
-      currentPhase: "verification",
-      location: "5th Cross, 6th Block",
-      reportedBy: {
-        name: "Citizen Name",
-        id: "CTZ123"
-      },
-      reportedAt: "2024-03-01",
-      deadline: "2024-03-15",
-      upvotes: 45,
-      comments: 12,
-      images: [],
-      description: "Street light non-functional for past week causing safety concerns",
-      phaseDetails: {
-        verification: {
-          status: "pending",
-          comments: ""
-        },
-        etaDeadline: {
-          status: "pending",
-          deadline: null,
-          isExtended: false
-        },
-        resolution: {
-          status: "pending",
-          comments: "",
-          proof: []
-        }
-      }
-    },
-    // Add more dummy issues...
-  ]);
-
-  // Dummy Notifications
-  const [notifications, setNotifications] = useState([
-    {
-      id: "NOT001",
-      type: "new_issue",
-      title: "New High Priority Issue Reported",
-      description: "Water pipeline leak reported in 4th Block",
-      timestamp: "2024-03-04T10:30:00Z",
-      read: false
-    },
-    {
-      id: "NOT002",
-      type: "status_update",
-      title: "Issue Resolution Update",
-      description: "Street light repair completed in 7th Block",
-      timestamp: "2024-03-04T09:15:00Z",
-      read: true
-    },
-    // Add more notifications...
-  ]);
-
+  // Update useEffect to handle saved location
   useEffect(() => {
-    // Fetch user info, issues, etc.
-  }, []);
+    if (userLocation) {
+      localStorage.setItem('userLocation', JSON.stringify(userLocation));
+      fetchAreaIssues(userLocation);
+    }
+  }, [userLocation]);
 
-  const handlePhaseUpdate = async (issueId, phase, updateData) => {
+  // Function to fetch issues for the current area
+  const fetchAreaIssues = async (coordinates, radius = 1) => {
+    if (!coordinates) {
+      setError('No coordinates provided');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setAreaIssues([]);
+
     try {
-      // In real implementation, this would be an API call
-      console.log('Updating phase:', { issueId, phase, updateData });
+      // Convert radius from kilometers to meters
+      const maxDistance = radius * 1000;
       
-      // Update local state for demo
-      setIssues(prevIssues => 
-        prevIssues.map(issue => {
-          if (issue.id === issueId) {
-            return {
-              ...issue,
-              currentPhase: phase === 'verification' && updateData.status === 'verified' ? 'etaDeadline' : phase,
-              phaseDetails: {
-                ...issue.phaseDetails,
-                [phase]: {
-                  ...issue.phaseDetails[phase],
-                  ...updateData
-                }
-              }
-            };
-          }
-          return issue;
-        })
-      );
+      console.log('Fetching issues with params:', {
+        longitude: coordinates.lng,
+        latitude: coordinates.lat,
+        maxDistance
+      });
 
-      setIssueDetailsModal(false);
-    } catch (error) {
-      console.error('Phase update error:', error);
-      // Show error toast
+      const response = await apiClient.get('/issues/location/nearby', {
+        params: {
+          longitude: coordinates.lng,
+          latitude: coordinates.lat,
+          maxDistance
+        }
+      });
+      
+      console.log('Raw API Response:', response);
+
+      // Handle different response formats
+      let issues = [];
+      if (Array.isArray(response)) {
+        issues = response;
+      } else if (response.data && Array.isArray(response.data)) {
+        issues = response.data;
+      } else if (response.issues && Array.isArray(response.issues)) {
+        issues = response.issues;
+      }
+
+      console.log('Processed issues:', issues);
+      
+      if (issues.length === 0) {
+        setError('No issues found in this area');
+      }
+      
+      setAreaIssues(issues);
+    } catch (err) {
+      console.error('Error fetching area issues:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch issues';
+      console.error('Error details:', errorMessage);
+      setError(`Failed to fetch issues: ${errorMessage}`);
+      setAreaIssues([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleFilterChange = (filters) => {
-    // Implement filtering logic
+    // Implement filtering logic for areaIssues
     console.log('Filters changed:', filters);
+  };
+
+  const handlePhaseUpdate = async (issueId, phase, phaseData) => {
+    try {
+      console.log('Updating phase with data:', { issueId, phase, phaseData });
+      
+      const response = await apiClient.patch(`/issues/${issueId}/phase`, {
+        phase,
+        phaseData
+      });
+
+      console.log('Phase update response:', response);
+
+      // Update the issues list with the updated issue
+      const updatedIssue = response.data;
+      setAreaIssues(prevIssues => 
+        prevIssues.map(issue => 
+          issue._id === issueId ? updatedIssue : issue
+        )
+      );
+
+      // Show success message
+      toast.success(`Phase ${phase} updated successfully`);
+      
+      // Refresh the issues list
+      if (userLocation) {
+        fetchAreaIssues(userLocation);
+      }
+    } catch (error) {
+      console.error('Phase update error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update phase';
+      console.log('Error details:', errorMessage);
+      toast.error(errorMessage);
+    }
   };
 
   const renderStatisticsCards = () => (
@@ -295,20 +512,38 @@ const AreaCounsellor = () => {
     </div>
   );
 
-  const renderIssuesList = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {issues.map(issue => (
-        <IssueCard
-          key={issue.id}
-          issue={issue}
-          onViewDetails={() => {
-            setSelectedIssue(issue);
-            setIssueDetailsModal(true);
-          }}
-        />
-      ))}
-    </div>
-  );
+  const renderIssuesList = () => {
+    if (error) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <p className="text-red-600">{error}</p>
+        </div>
+      );
+    }
+
+    if (!userLocation) {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <p className="text-yellow-600">Please set your coordinates to view issues in your area.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {areaIssues.map(issue => (
+          <IssueCard
+            key={issue._id}
+            issue={issue}
+            onViewDetails={() => {
+              setSelectedIssue(issue);
+              setIssueDetailsModal(true);
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -328,6 +563,13 @@ const AreaCounsellor = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowSetCoordinatesModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm"
+              >
+                <MapPinIcon size={18} />
+                <span>Set Coordinates</span>
+              </button>
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative text-gray-500 hover:text-gray-700"
@@ -385,14 +627,16 @@ const AreaCounsellor = () => {
           <>
             {renderStatisticsCards()}
             {renderPerformanceMetrics()}
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Issues</h2>
-            {renderIssuesList()}
+            <div className="space-y-6">
+              <IssueFilters onFilterChange={handleFilterChange} isLoading={isLoading} />
+              {renderIssuesList()}
+            </div>
           </>
         )}
 
         {activeTab === 'issues' && (
           <>
-            <IssueFilters onFilterChange={handleFilterChange} />
+            <IssueFilters onFilterChange={handleFilterChange} isLoading={isLoading} />
             {renderIssuesList()}
           </>
         )}
@@ -483,6 +727,15 @@ const AreaCounsellor = () => {
           onPhaseUpdate={handlePhaseUpdate}
         />
       )}
+
+      {/* Add Set Coordinates Modal */}
+      <SetCoordinatesModal
+        isOpen={showSetCoordinatesModal}
+        onClose={() => setShowSetCoordinatesModal(false)}
+        userLocation={userLocation}
+        setUserLocation={setUserLocation}
+        fetchAreaIssues={fetchAreaIssues}
+      />
     </div>
   );
 };
