@@ -289,6 +289,7 @@ const authController = {
                     role: user.role,
                     category: user.category,
                     verified: user.verified,
+                    category: user.category,
                     parentMunicipalCorp: user.parentMunicipalCorp,
                 },
             });
