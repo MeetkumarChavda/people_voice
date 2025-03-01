@@ -71,7 +71,9 @@ function App() {
                             </ProtectedRoute>
                         } />
                         <Route path="/counsellor-dashboard" element={
+                            <ProtectedRoute allowedRoles={['government']}>
                             <AreaCounsellorDashboard/>
+                            </ProtectedRoute>
                         } />
                         <Route path="/citizenfeed" element={
                             <ProtectedRoute allowedRoles={['citizen', 'organization']}>
