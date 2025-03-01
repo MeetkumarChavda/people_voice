@@ -29,8 +29,16 @@ const authController = {
                 role,
                 category,
                 subcategory,
-                areaCode,
+                areaName,
             } = req.body;
+
+            console.log("Registration request data:", {
+                username,
+                email,
+                role,
+                category,
+                subcategory,
+            });
 
             // Check if user already exists
             const existingUser = await User.findOne({
@@ -66,7 +74,7 @@ const authController = {
                 });
             }
 
-            // Validate parentMunicipalCorp for AreaCounsellor
+            // Validate municipalCorporationID for AreaCounsellor
             if (
                 role === "government" &&
                 category === "AreaCounsellor" &&
@@ -79,27 +87,8 @@ const authController = {
                 });
             }
 
-            // If municipalCorporationID is provided, check if it exists and is of the right type
-            if (subcategory && subcategory.municipalCorporationID) {
-                const municipalCorp = await User.findById(
-                    subcategory.municipalCorporationID
-                );
-                if (
-                    !municipalCorp ||
-                    municipalCorp.role !== "government" ||
-                    municipalCorp.category !== "MunicipalCorporation"
-                ) {
-                    return res.status(400).json({
-                        success: false,
-                        message: "Invalid Municipal Corporation reference",
-                    });
-                }
-                // Set the municipal corporation name
-                subcategory.municipalCorporationName = municipalCorp.name;
-            }
-
-            // Create new user
-            const newUser = new User({
+            // Prepare user data
+            const userData = {
                 username,
                 name,
                 email,
@@ -107,9 +96,7 @@ const authController = {
                 phoneNumber,
                 address,
                 role: role || "citizen", // Default role
-                category: category || undefined,
-                subcategory: subcategory || undefined,
-                areaCode,
+                verified: role === "citizen" || role === "organization", // Auto-verify citizens and organizations
                 createdAt: new Date(),
                 points: 0,
                 badges: [],
@@ -121,23 +108,79 @@ const authController = {
                     upvotesReceived: 0,
                     commentsPosted: 0,
                     solutionsProvided: 0,
-                },
-            });
+                }
+            };
 
+            // Add category if not citizen
+            if (role !== "citizen") {
+                userData.category = category;
+            }
+
+            // Add areaName for government roles
+            if (role === "government") {
+                userData.areaName = areaName;
+            }
+
+            // Add subcategory only for AreaCounsellor
+            if (role === "government" && category === "AreaCounsellor" && subcategory) {
+                // If municipalCorporationID is provided, check if it exists and is of the right type
+                if (subcategory.municipalCorporationID) {
+                    const municipalCorp = await User.findById(
+                        subcategory.municipalCorporationID
+                    );
+                    if (
+                        !municipalCorp ||
+                        municipalCorp.role !== "government" ||
+                        municipalCorp.category !== "MunicipalCorporation"
+                    ) {
+                        return res.status(400).json({
+                            success: false,
+                            message: "Invalid Municipal Corporation reference",
+                        });
+                    }
+                    
+                    // Set the subcategory with municipal corporation details
+                    userData.subcategory = {
+                        municipalCorporationID: subcategory.municipalCorporationID,
+                        municipalCorporationName: municipalCorp.name
+                    };
+                }
+            }
+
+            // Create and save the new user
+            const newUser = new User(userData);
             await newUser.save();
 
-            // Generate JWT token
+            // For government roles, return a different message
+            if (role === "government") {
+                return res.status(201).json({
+                    success: true,
+                    message: "Registration request submitted successfully. Your account requires verification before it can be used.",
+                    user: {
+                        id: newUser._id,
+                        username: newUser.username,
+                        name: newUser.name,
+                        email: newUser.email,
+                        role: newUser.role,
+                        category: newUser.category,
+                        verified: newUser.verified,
+                    },
+                });
+            }
+
+            // Generate JWT token for non-government roles
             const token = jwt.sign(
                 {
                     id: newUser._id,
                     role: newUser.role,
                     category: newUser.category,
+                    verified: newUser.verified,
                 },
                 JWT_SECRET,
                 { expiresIn: JWT_EXPIRES_IN }
             );
 
-            // Return success with token
+            // Return success with token for non-government roles
             return res.status(201).json({
                 success: true,
                 message: "User registered successfully",
@@ -149,12 +192,13 @@ const authController = {
                     email: newUser.email,
                     role: newUser.role,
                     category: newUser.category,
-                    subcategory: {
+                    verified: newUser.verified,
+                    subcategory: newUser.subcategory ? {
                         municipalCorporationID:
                             newUser.subcategory.municipalCorporationID,
                         municipalCorporationName:
                             newUser.subcategory.municipalCorporationName,
-                    },
+                    } : undefined,
                 },
             });
         } catch (error) {
@@ -200,6 +244,14 @@ const authController = {
                 });
             }
 
+            // Check if government account is verified
+            if (user.role === "government" && !user.verified) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Your account is pending verification. Please wait for approval.",
+                });
+            }
+
             // Update last login
             user.lastLogin = new Date();
             await user.save();
@@ -210,6 +262,7 @@ const authController = {
                     id: user._id,
                     role: user.role,
                     category: user.category,
+                    verified: user.verified,
                 },
                 JWT_SECRET,
                 { expiresIn: JWT_EXPIRES_IN }
@@ -226,6 +279,7 @@ const authController = {
                     email: user.email,
                     role: user.role,
                     category: user.category,
+                    verified: user.verified,
                     parentMunicipalCorp: user.parentMunicipalCorp,
                 },
             });
@@ -234,6 +288,164 @@ const authController = {
             return res.status(500).json({
                 success: false,
                 message: "Server error during login",
+                error: error.message,
+            });
+        }
+    },
+
+    // Admin login
+    adminLogin: async (req, res) => {
+        try {
+            const { username, password } = req.body;
+
+            // Hardcoded admin credentials
+            if (username !== "admin" || password !== "admin123") {
+                return res.status(401).json({
+                    success: false,
+                    message: "Invalid admin credentials",
+                });
+            }
+
+            // Generate JWT token for admin
+            const token = jwt.sign(
+                {
+                    id: "admin",
+                    role: "superAdmin",
+                    verified: true,
+                },
+                JWT_SECRET,
+                { expiresIn: JWT_EXPIRES_IN }
+            );
+
+            // Return success with token
+            return res.status(200).json({
+                success: true,
+                message: "Admin login successful",
+                token,
+                user: {
+                    username: "admin",
+                    role: "superAdmin",
+                },
+            });
+        } catch (error) {
+            console.error("Admin login error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Server error during admin login",
+                error: error.message,
+            });
+        }
+    },
+
+    // Get pending verification requests
+    getPendingVerificationRequests: async (req, res) => {
+        try {
+            const { role } = req.user;
+            let query = { verified: false };
+
+            // If municipal corporation, only show area counsellors linked to this municipal corporation
+            if (role === "government" && req.user.category === "MunicipalCorporation") {
+                query = {
+                    verified: false,
+                    role: "government",
+                    category: "AreaCounsellor",
+                    "subcategory.municipalCorporationID": req.user.id,
+                };
+            } 
+            // If superAdmin, only show municipal corporation requests
+            else if (role === "superAdmin") {
+                query = {
+                    verified: false,
+                    role: "government",
+                    category: "MunicipalCorporation",
+                };
+            } else {
+                return res.status(403).json({
+                    success: false,
+                    message: "You don't have permission to view verification requests",
+                });
+            }
+
+            const pendingRequests = await User.find(query).select("-passwordHash");
+
+            return res.status(200).json({
+                success: true,
+                count: pendingRequests.length,
+                data: pendingRequests,
+            });
+        } catch (error) {
+            console.error("Get pending verification requests error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Server error while fetching verification requests",
+                error: error.message,
+            });
+        }
+    },
+
+    // Approve or reject verification request
+    handleVerificationRequest: async (req, res) => {
+        try {
+            const { userId, approved } = req.body;
+            const { role } = req.user;
+
+            // Find the user to verify
+            const userToVerify = await User.findById(userId);
+
+            if (!userToVerify) {
+                return res.status(404).json({
+                    success: false,
+                    message: "User not found",
+                });
+            }
+
+            // Check permissions
+            if (
+                (role === "government" &&
+                req.user.category === "MunicipalCorporation" &&
+                (userToVerify.role !== "government" ||
+                    userToVerify.category !== "AreaCounsellor" ||
+                    userToVerify.subcategory.municipalCorporationID.toString() !== req.user.id)) ||
+                (role === "superAdmin" &&
+                (userToVerify.role !== "government" ||
+                    userToVerify.category !== "MunicipalCorporation"))
+            ) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You don't have permission to verify this user",
+                });
+            }
+
+            if (!approved) {
+                // If rejected, delete the user
+                await User.findByIdAndDelete(userId);
+                return res.status(200).json({
+                    success: true,
+                    message: "Verification request rejected and user deleted",
+                });
+            }
+
+            // If approved, update verified status
+            userToVerify.verified = true;
+            await userToVerify.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "User verified successfully",
+                user: {
+                    id: userToVerify._id,
+                    username: userToVerify.username,
+                    email: userToVerify.email,
+                    role: userToVerify.role,
+                    category: userToVerify.category,
+                    verified: userToVerify.verified,
+                },
+            });
+        } catch (error) {
+            console.error("Handle verification request error:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Server error while handling verification request",
                 error: error.message,
             });
         }
@@ -354,6 +566,7 @@ const authController = {
             const municipalCorps = await User.find({
                 role: "government",
                 category: "MunicipalCorporation",
+                verified: true, // Only return verified municipal corporations
             }).select("_id username email address");
 
             return res.status(200).json({
@@ -395,6 +608,7 @@ const authController = {
                 role: "government",
                 category: "AreaCounsellor",
                 "subcategory.municipalCorporationID": municipalCorpId,
+                verified: true, // Only return verified area counsellors
             }).select("-passwordHash");
 
             return res.status(200).json({
@@ -418,6 +632,7 @@ const authController = {
             const municipalCorpUsers = await User.find({
                 role: "government",
                 category: "MunicipalCorporation",
+                verified: true, // Only return verified municipal corporations
             }).select("_id name");
 
             return res.status(200).json({
@@ -432,6 +647,29 @@ const authController = {
                 message:
                     "Server error while fetching municipal corporation users",
                 error: error.message,
+            });
+        }
+    },
+
+    // Get all verified municipal corporations (for area counsellor signup)
+    getMunicipalCorporations: async (req, res) => {
+        try {
+            const municipalCorps = await User.find({
+                role: "government",
+                category: "MunicipalCorporation",
+                verified: true
+            }).select('_id name areaName');
+
+            return res.status(200).json({
+                success: true,
+                data: municipalCorps
+            });
+        } catch (error) {
+            console.error("Error fetching municipal corporations:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Server error while fetching municipal corporations",
+                error: error.message
             });
         }
     },

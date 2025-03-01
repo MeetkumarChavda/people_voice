@@ -1,4 +1,3 @@
-
 // Import routes
 const express = require('express');
 const cors = require('cors');
@@ -8,7 +7,6 @@ const path = require('path');
 const config = require('./config/server.config');
 
 // Import routes
-const tempRoutes = require('./routes/temp.routes');
 const issueRoutes = require('./routes/issue.routes');
 const userRoutes = require("./routes/user.routes");
 
@@ -32,11 +30,8 @@ if (config.nodeEnv === "development") {
 }
 
 // API routes
-app.use("/api/v1/temp", tempRoutes);
 app.use("/api/auth", userRoutes);
 app.use('/api/issues', issueRoutes);
-
-
 
 // Error handling middleware
 app.use((err, req, res, next) => {
