@@ -104,6 +104,22 @@ router.post(
 router.get(
     "/verification-requests",
     authMiddleware.authenticateUser,
+    (req, res, next) => {
+        // Allow both superAdmin and MunicipalCorporation users
+        if (
+            req.user.role === "superAdmin" ||
+            (req.user.role === "government" &&
+                req.user.category === "MunicipalCorporation" &&
+                req.user.verified)
+        ) {
+            next();
+        } else {
+            res.status(403).json({
+                success: false,
+                message: "Access denied. Insufficient permissions.",
+            });
+        }
+    },
     authController.getPendingVerificationRequests
 );
 
