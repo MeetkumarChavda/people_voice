@@ -2,11 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
     ArrowUpIcon,
     BellIcon,
-    ChevronDownIcon,
     ChevronLeftIcon,
-    ChevronRightIcon,
-    CogIcon,
-    HomeIcon,
     MapIcon,
     PlusIcon,
     UserCircleIcon,
@@ -283,6 +279,7 @@ const CitizenFeed = () => {
             })
             .then((res) => {
                 console.log(res);
+                fetchIssues();
             })
             .catch((error) => {
                 console.error("Error upvoting:", error);
@@ -497,58 +494,6 @@ const CitizenFeed = () => {
         );
     };
 
-    const renderTrendingIssues = () => (
-        <div className="bg-white rounded-lg shadow-sm mb-4 transition-all duration-300 hover:shadow-md">
-            <div className="p-3 border-b border-gray-100">
-                <h3 className="font-medium text-gray-700">
-                    Trending in Your Area
-                </h3>
-            </div>
-            <div className="p-3">
-                {trendingIssues.map((issue, index) => (
-                    <div
-                        key={index}
-                        className={`mb-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-300 ${
-                            index !== trendingIssues.length - 1
-                                ? "border-b border-gray-100"
-                                : ""
-                        }`}
-                    >
-                        <div className="font-medium text-sm text-gray-800 hover:text-blue-600 transition-colors cursor-pointer">
-                            {issue.title}
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                            <div className="flex text-xs text-gray-500 items-center">
-                                <span>{issue.updates} updates</span>
-                                <span className="mx-1">•</span>
-                                <span
-                                    className={`text-xs px-1.5 py-0.5 rounded-md ${getStatusColor(
-                                        issue.status
-                                    )} text-white`}
-                                >
-                                    {getStatusText(issue.status)}
-                                </span>
-                            </div>
-                            <button
-                                onClick={() => {
-                                    setSelectedIssue(issue);
-                                    setShowMapModal(true);
-                                }}
-                                className="text-xs px-1.5 py-0.5 bg-purple-600 text-white rounded hover:bg-purple-700 transition-all duration-300 flex items-center gap-0.5 transform hover:scale-105"
-                            >
-                                <MapIcon size={10} />
-                                <span className="text-[10px]">Map</span>
-                            </button>
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            {issue.upvotes} upvotes • {issue.location}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
     // Render issues from API data
     const renderIssues = () => {
         if (issues.length === 0 && !isLoading) {
@@ -601,7 +546,7 @@ const CitizenFeed = () => {
                 </div>
 
                 {issue.photos && issue.photos.length > 0 ? (
-                    <div className="h-48 bg-gray-200 relative">
+                    <div className="relative aspect-[16/9] overflow-hidden rounded-lg mx-4 my-4">
                         <img
                             crossOrigin="anonymous"
                             src={
@@ -609,14 +554,21 @@ const CitizenFeed = () => {
                                     `/${issue.photos[0]}` || ""
                             }
                             alt={issue.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-300"
                         />
+                        {issue.photos.length > 1 && (
+                            <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded-full text-white text-xs font-medium">
+                                1/{issue.photos.length}
+                            </div>
+                        )}
                     </div>
                 ) : (
-                    <div className="flex justify-center items-center bg-gray-100 h-48 rounded-md mx-4 my-4 border border-gray-200">
-                        <div className="text-center text-gray-400">
+                    <div className="relative aspect-[16/9] overflow-hidden rounded-lg mx-4 my-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
                             <div className="text-4xl mb-2">🖼️</div>
-                            <div className="text-sm">No Image Available</div>
+                            <div className="text-sm font-medium">
+                                No Image Available
+                            </div>
                         </div>
                     </div>
                 )}
@@ -681,7 +633,16 @@ const CitizenFeed = () => {
         ));
     };
 
-    // Update the button click handlers to use the new function
+    // Add handleLogout function after other handler functions
+    const handleLogout = () => {
+        // Clear tokens and user data
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        // Redirect to home page
+        navigate("/");
+    };
+
+    // Update the header section to include the dropdown menu
     const renderHeader = () => (
         <div className="bg-blue-600 py-3 px-4 flex justify-between items-center text-white shadow-md transition-all duration-300">
             <div className="font-bold text-xl">CityFix</div>
@@ -693,9 +654,7 @@ const CitizenFeed = () => {
                     <PlusIcon size={20} />
                     <span>Post Issue</span>
                 </button>
-                <button className="p-2 rounded-full hover:bg-blue-700 transition-colors duration-200">
-                    <CogIcon size={20} />
-                </button>
+
                 <div className="relative">
                     <button
                         className="flex items-center space-x-1 p-2 rounded-full hover:bg-blue-700 transition-colors duration-200"
@@ -705,7 +664,16 @@ const CitizenFeed = () => {
                     >
                         <UserCircleIcon size={24} />
                     </button>
-                    {/* Profile dropdown content */}
+                    {showProfileDropdown && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                            <button
+                                onClick={handleLogout}
+                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -714,9 +682,6 @@ const CitizenFeed = () => {
     // Update the mobile footer to use the new function
     const renderMobileFooter = () => (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around items-center py-2 shadow-lg">
-            <button className="p-2 text-blue-600">
-                <HomeIcon size={24} />
-            </button>
             <button className="p-2 text-gray-500">
                 <MapIcon size={24} />
             </button>
@@ -793,13 +758,6 @@ const CitizenFeed = () => {
                             <div className="flex flex-col text-sm">
                                 <a
                                     href="#"
-                                    className="px-4 py-3 text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                >
-                                    <HomeIcon size={16} />
-                                    <span>Home</span>
-                                </a>
-                                <a
-                                    href="#"
                                     className="px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2 transition-colors"
                                 >
                                     <ChevronLeftIcon size={16} />
@@ -812,29 +770,6 @@ const CitizenFeed = () => {
                                     <UserCircleIcon size={16} />
                                     <span>My Reports</span>
                                 </button>
-                                <button
-                                    onClick={() => navigate("/notifications")}
-                                    className="px-4 py-3 text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                >
-                                    <BellIcon size={16} />
-                                    <span>Notifications</span>
-                                </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <a
-                                    href="#"
-                                    className="px-4 py-3 text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                >
-                                    <MapIcon size={16} />
-                                    <span>Area Map</span>
-                                </a>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                <a
-                                    href="#"
-                                    className="px-4 py-3 text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                                >
-                                    <CogIcon size={16} />
-                                    <span>Settings</span>
-                                </a>
                             </div>
                         </div>
                     </div>
@@ -842,7 +777,7 @@ const CitizenFeed = () => {
 
                 {/* Middle content */}
                 {(!isMobile || activeTab === "feed") && (
-                    <div className="flex-1 transition-all duration-500">
+                    <div className="flex-1 transition-all duration-500 md:pr-48">
                         {/* Loading and Error States */}
                         {isLoading && (
                             <div className="bg-white rounded-lg shadow-sm p-4 mb-4 flex items-center justify-center">
@@ -867,320 +802,11 @@ const CitizenFeed = () => {
 
                         {/* If no issues are available and not loading, show the original hardcoded issue as fallback */}
                         {!isLoading && !error && issues.length === 0 && (
-                            <div className="bg-white rounded-lg shadow-sm transition-all duration-300 hover:shadow-md mb-4">
-                                <div className="flex justify-between items-start p-4 border-b border-gray-100">
-                                    <div className="flex items-center">
-                                        <div className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold text-sm mr-3 shadow-sm">
-                                            {profile.avatar}
-                                        </div>
-                                        <div>
-                                            <div className="flex justify-between items-center">
-                                                <div className="font-bold text-gray-800">
-                                                    {profile.name}
-                                                </div>
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {profile.location}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <span
-                                            className={`text-xs font-medium px-2 py-1 rounded-full ${getStatusColor(
-                                                activePhase
-                                            )} text-white`}
-                                        >
-                                            {getStatusText(activePhase)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-center items-center bg-gray-100 h-48 rounded-md mx-4 my-4 border border-gray-200">
-                                    <div className="text-center text-gray-400">
-                                        <div className="text-4xl mb-2">🖼️</div>
-                                        <div className="text-sm">
-                                            Issue Image
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="p-4">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="inline-block text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-600">
-                                            INFRASTRUCTURE
-                                        </span>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedIssue(currentIssue);
-                                                setShowMapModal(true);
-                                            }}
-                                            className="text-xs px-2 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-all duration-300 flex items-center gap-1"
-                                        >
-                                            <MapIcon size={12} />
-                                            View on Map
-                                        </button>
-                                    </div>
-                                    <h2 className="text-lg font-bold text-gray-800 mb-2">
-                                        {currentIssue.title}
-                                    </h2>
-                                    <p className="text-gray-600 text-sm mb-4">
-                                        {currentIssue.description}
-                                    </p>
-
-                                    <div className="text-xs text-gray-500 mb-1">
-                                        Reported: February 25, 2024 • Updated:
-                                        March 4, 2024 • ID: #{currentIssue._id}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mb-4">
-                                        Assigned to:{" "}
-                                        {currentIssue.assignedTo.name}
-                                    </div>
-
-                                    {/* Enhanced Upvote Button */}
-
-                                    {/* Progress tracker - Enhanced */}
-                                    <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                        <div className="flex justify-between items-center mb-2">
-                                            {[
-                                                "reported",
-                                                "verified",
-                                                "inProgress",
-                                                "resolved",
-                                                "closed",
-                                            ].map((phase, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`flex-1 text-center text-xs font-medium 
-                          ${
-                              phase === activePhase
-                                  ? "text-green-600"
-                                  : "text-gray-500"
-                          }`}
-                                                >
-                                                    {phase === "inProgress"
-                                                        ? "In Progress"
-                                                        : phase
-                                                              .charAt(0)
-                                                              .toUpperCase() +
-                                                          phase.slice(1)}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <div className="relative h-6 bg-gray-100 rounded-full overflow-hidden">
-                                            <div
-                                                className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-400 to-green-500 transition-all duration-500 ease-out"
-                                                style={{
-                                                    width: `${getProgressPercentage(
-                                                        activePhase
-                                                    )}%`,
-                                                }}
-                                            ></div>
-
-                                            {/* Enhanced Checkpoint markers */}
-                                            <div className="absolute top-0 left-0 w-full h-full flex justify-between items-center px-1">
-                                                {[
-                                                    "reported",
-                                                    "verified",
-                                                    "inProgress",
-                                                    "resolved",
-                                                    "closed",
-                                                ].map((phase, idx) => {
-                                                    const isActive =
-                                                        getProgressPercentage(
-                                                            activePhase
-                                                        ) >=
-                                                        getProgressPercentage(
-                                                            phase
-                                                        );
-                                                    return (
-                                                        <div
-                                                            key={idx}
-                                                            className={`w-6 h-6 rounded-full z-10 flex items-center justify-center -mt-0 transition-all duration-300 
-                              ${
-                                  isActive
-                                      ? "bg-white shadow-lg border-2 border-green-500"
-                                      : "bg-gray-200"
-                              }`}
-                                                        >
-                                                            {isActive && (
-                                                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Comments section */}
-                                    <h3 className="font-bold text-gray-800 mb-4">
-                                        Comments ({currentIssue.comments.length}
-                                        )
-                                    </h3>
-                                    <div className="space-y-4">
-                                        {visibleComments.map(
-                                            (comment, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-all duration-300"
-                                                >
-                                                    <div className="flex items-start">
-                                                        <div
-                                                            className={`flex-shrink-0 w-10 h-10 rounded-full ${
-                                                                comment.username.startsWith(
-                                                                    "Bangalore"
-                                                                )
-                                                                    ? "bg-gradient-to-r from-green-500 to-green-600"
-                                                                    : "bg-gradient-to-r from-blue-500 to-blue-600"
-                                                            } text-white flex items-center justify-center font-bold text-sm mr-3 shadow-sm`}
-                                                        >
-                                                            {comment.username.startsWith(
-                                                                "Bangalore"
-                                                            )
-                                                                ? "BM"
-                                                                : comment.username.substring(
-                                                                      0,
-                                                                      2
-                                                                  )}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="font-medium text-gray-800">
-                                                                    {
-                                                                        comment.username
-                                                                    }
-                                                                </div>
-                                                                <div className="text-xs text-gray-500">
-                                                                    {getRelativeTime(
-                                                                        comment.timestamp
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-gray-700 mt-2">
-                                                                {
-                                                                    comment.comment
-                                                                }
-                                                            </div>
-                                                            <div className="flex items-center mt-3 space-x-4">
-                                                                {/* Enhanced Comment Upvote Button */}
-                                                                <button
-                                                                    onClick={() =>
-                                                                        handleCommentUpvote(
-                                                                            comment.id,
-                                                                            comment.upvotes
-                                                                        )
-                                                                    }
-                                                                    className={`flex items-center px-2 py-1 rounded-lg ${
-                                                                        commentUpvoted[
-                                                                            comment
-                                                                                .id
-                                                                        ]
-                                                                            ? "bg-blue-50 border border-blue-200"
-                                                                            : "hover:bg-blue-50 hover:border-blue-200"
-                                                                    } transition-all duration-300 group`}
-                                                                >
-                                                                    <div className="relative">
-                                                                        <ArrowUpIcon
-                                                                            size={
-                                                                                16
-                                                                            }
-                                                                            className={`transform transition-transform duration-300 ${
-                                                                                commentUpvoted[
-                                                                                    comment
-                                                                                        .id
-                                                                                ]
-                                                                                    ? "text-blue-600 scale-110"
-                                                                                    : "text-gray-500 group-hover:text-blue-600 group-hover:scale-110"
-                                                                            }`}
-                                                                        />
-                                                                        {commentUpvoted[
-                                                                            comment
-                                                                                .id
-                                                                        ] && (
-                                                                            <div className="absolute -top-2 -right-2 text-xs bg-blue-100 text-blue-600 px-1 rounded-full animate-pulse">
-                                                                                +1
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                    <span
-                                                                        className={`text-sm font-medium ml-1 ${
-                                                                            commentUpvoted[
-                                                                                comment
-                                                                                    .id
-                                                                            ]
-                                                                                ? "text-blue-600"
-                                                                                : "text-gray-500 group-hover:text-blue-600"
-                                                                        }`}
-                                                                    >
-                                                                        {commentUpvoted[
-                                                                            comment
-                                                                                .id
-                                                                        ]
-                                                                            ? comment.upvotes +
-                                                                              1
-                                                                            : comment.upvotes}
-                                                                    </span>
-                                                                </button>
-                                                                <button className="text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                                                                    Reply
-                                                                </button>
-                                                            </div>
-
-                                                            {/* Comment upvoters */}
-                                                            {commentUpvoted[
-                                                                comment.id
-                                                            ] && (
-                                                                <div className="mt-2 text-xs text-blue-500 animate-fadeIn">
-                                                                    You and{" "}
-                                                                    {
-                                                                        comment.upvotes
-                                                                    }{" "}
-                                                                    others
-                                                                    upvoted this
-                                                                    comment
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )
-                                        )}
-
-                                        {currentIssue.comments.length > 2 && (
-                                            <button
-                                                onClick={() =>
-                                                    setExpandedComments(
-                                                        !expandedComments
-                                                    )
-                                                }
-                                                className="w-full text-center py-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                                            >
-                                                {expandedComments
-                                                    ? "Show Less"
-                                                    : `Show ${
-                                                          currentIssue.comments
-                                                              .length - 2
-                                                      } More Comments`}
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="flex mt-6">
-                                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm mr-3 shadow-sm">
-                                            {currentUser.avatar}
-                                        </div>
-                                        <div className="flex-1">
-                                            <input
-                                                placeholder="Add a comment..."
-                                                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            />
-                                            <div className="flex justify-end mt-2">
-                                                <button className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-sm hover:shadow-md transform hover:scale-105">
-                                                    Post Comment
-                                                </button>
-                                            </div>
-                                        </div>
+                            <div className="relative aspect-[16/9] overflow-hidden rounded-lg mx-4 my-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                                    <div className="text-4xl mb-2">🖼️</div>
+                                    <div className="text-sm font-medium">
+                                        Issue Image
                                     </div>
                                 </div>
                             </div>
@@ -1188,20 +814,9 @@ const CitizenFeed = () => {
                     </div>
                 )}
 
-                {/* Right sidebar - visible on desktop or when 'similar' tab is active on mobile */}
-                {(!isMobile || activeTab === "similar") && (
-                    <div
-                        className={`${
-                            isMobile ? "w-full" : "w-64"
-                        } transition-all duration-500`}
-                    >
-                        {renderTrendingIssues()}
-                    </div>
-                )}
-
                 {/* Trending section - only visible on mobile when that tab is active */}
                 {isMobile && activeTab === "trending" && (
-                    <div className="w-full transition-all duration-500">
+                    <div className="w-full transition-all duration-500 md:pr-48">
                         <div className="bg-white rounded-lg shadow-sm transition-all duration-300 hover:shadow-md">
                             <div className="p-3 border-b border-gray-100">
                                 <h3 className="font-medium text-gray-700">

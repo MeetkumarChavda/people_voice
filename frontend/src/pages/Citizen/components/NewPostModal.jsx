@@ -145,11 +145,10 @@ const PostIssueModal = ({
 
             // Add reporter data - this should be the current user info from your auth system
             // This is just a placeholder - replace with actual user data from your auth context
+            var currentUserStore = JSON.parse(localStorage.getItem("user"));
             const currentUser = {
-                userId:
-                    localStorage.getItem("userId") ||
-                    "650a1b23e4c2f5d987654321", // Replace with actual user ID
-                username: localStorage.getItem("username") || "user", // Replace with actual username
+                userId: currentUserStore.id, // Replace with actual user ID
+                username: currentUserStore.username, // Replace with actual username
             };
 
             formDataToSend.append("reportedBy", JSON.stringify(currentUser));
