@@ -1,11 +1,15 @@
+// Import routes
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 const config = require('./config/server.config');
 
 // Import routes
-const tempRoutes = require('./routes/temp.routes');
+const issueRoutes = require('./routes/issue.routes');
+const userRoutes = require("./routes/user.routes");
+const areaRoutes = require('./routes/area.routes');
 
 // Initialize express app
 const app = express();
@@ -18,23 +22,27 @@ app.use(cors(config.cors));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Logging middleware
-if (config.nodeEnv === 'development') {
-    app.use(morgan('dev'));
+if (config.nodeEnv === "development") {
+    app.use(morgan("dev"));
 }
 
-
 // API routes
-app.use('/api/v1/temp', tempRoutes);
+app.use("/api/auth", userRoutes);
+app.use('/api/issues', issueRoutes);
+app.use('/api/areas', areaRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(err.status || 500).json({
         error: {
-            message: err.message || 'Internal Server Error',
-            ...(config.nodeEnv === 'development' && { stack: err.stack })
-        }
+            message: err.message || "Internal Server Error",
+            ...(config.nodeEnv === "development" && { stack: err.stack }),
+        },
     });
 });
 
@@ -42,9 +50,9 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
     res.status(404).json({
         error: {
-            message: 'Not Found'
-        }
+            message: "Not Found",
+        },
     });
 });
 
-module.exports = app; 
+module.exports = app;
