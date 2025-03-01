@@ -1,11 +1,15 @@
-const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const morgan = require("morgan");
-const config = require("./config/server.config");
 
 // Import routes
-const tempRoutes = require("./routes/temp.routes");
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const path = require('path');
+const config = require('./config/server.config');
+
+// Import routes
+const tempRoutes = require('./routes/temp.routes');
+const issueRoutes = require('./routes/issue.routes');
 const userRoutes = require("./routes/user.routes");
 
 // Initialize express app
@@ -19,6 +23,9 @@ app.use(cors(config.cors));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Logging middleware
 if (config.nodeEnv === "development") {
     app.use(morgan("dev"));
@@ -26,8 +33,10 @@ if (config.nodeEnv === "development") {
 
 // API routes
 app.use("/api/v1/temp", tempRoutes);
+app.use("/api/auth", userRoutes);
+app.use('/api/issues', issueRoutes);
 
-app.use("/api/v1/auth", userRoutes);
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {
