@@ -27,6 +27,9 @@ import {
 } from 'lucide-react';
 import apiClient from '../../services/api.config';
 import { toast } from 'react-hot-toast';
+import Issues from './Issues';
+import Profile from './Profile';
+import CounsellorProfile from './CounsellorProfile';
 
 const MunicipalDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -44,6 +47,9 @@ const MunicipalDashboard = () => {
     comments: '',
     proof: []
   });
+  const [selectedCounsellor, setSelectedCounsellor] = useState(null);
+  const [showCounsellorProfile, setShowCounsellorProfile] = useState(false);
+  const [escalatedIssues, setEscalatedIssues] = useState([]);
   
   // Replace state with static data for demo
   const issueStats = {
@@ -226,29 +232,107 @@ const MunicipalDashboard = () => {
     }
   ];
 
-  // Add static escalated issues for demo
-  const escalatedIssues = staticIssues.map(issue => ({
-    ...issue,
-    escalationReason: 'Deadline exceeded without resolution',
-    escalatedAt: '2024-03-05',
-    originalDeadline: '2024-03-01',
-    currentPhase: issue.phase,
-    phaseDetails: {
-      verification: {
-        status: 'verified',
-        verificationDate: '2024-03-01',
-        comments: 'Issue verified and requires immediate attention'
+  useEffect(() => {
+    // Initialize with some dummy escalated issues
+    const dummyEscalatedIssues = [
+      {
+        id: 'ISS001',
+        title: 'Sewage Overflow in Residential Area',
+        category: 'infrastructure',
+        description: 'Severe sewage overflow affecting multiple streets. Health hazard reported by residents.',
+        location: 'Sector 12, Block B',
+        reportedBy: 'Amit Shah',
+        reportedAt: '2024-03-08',
+        originalDeadline: '2024-03-10',
+        escalatedAt: '2024-03-11',
+        phase: 'highPriority',
+        priority: 'high',
+        upvotes: 156,
+        comments: 32,
+        images: 6,
+        areaCounsellor: {
+          name: 'Priya Sharma',
+          response: 'Requires specialized equipment and team'
+        },
+        status: 'escalated',
+        timeline: [
+          {
+            date: '2024-03-08',
+            action: 'Issue Reported',
+            by: 'Citizen',
+            details: 'Multiple complaints received'
+          },
+          {
+            date: '2024-03-09',
+            action: 'Initial Assessment',
+            by: 'Area Counsellor',
+            details: 'Situation critical, requires immediate action'
+          },
+          {
+            date: '2024-03-11',
+            action: 'Escalated',
+            by: 'System',
+            details: 'Deadline missed, health hazard reported'
+          }
+        ],
+        affectedAreas: ['Sector 12'],
+        impactMetrics: {
+          householdsAffected: 200,
+          estimatedRepairTime: '48 hours',
+          estimatedCost: '₹5,00,000'
+        }
       },
-      etaDeadline: {
-        initialDeadline: '2024-03-01',
-        isExtended: false
-      },
-      resolution: {
-        status: 'pending',
-        comments: ''
+      {
+        id: 'ISS002',
+        title: 'Street Light Outage - Safety Concern',
+        category: 'publicSafety',
+        description: 'Complete darkness in main market area. Multiple safety incidents reported.',
+        location: 'Main Market, Sector 4',
+        reportedBy: 'Ravi Kumar',
+        reportedAt: '2024-03-07',
+        originalDeadline: '2024-03-09',
+        escalatedAt: '2024-03-10',
+        phase: 'highPriority',
+        priority: 'high',
+        upvotes: 89,
+        comments: 15,
+        images: 4,
+        areaCounsellor: {
+          name: 'Suresh Patel',
+          response: 'Electrical department coordination required'
+        },
+        status: 'escalated',
+        timeline: [
+          {
+            date: '2024-03-07',
+            action: 'Issue Reported',
+            by: 'Citizen',
+            details: 'Safety concerns raised by market association'
+          },
+          {
+            date: '2024-03-08',
+            action: 'Site Visit',
+            by: 'Area Counsellor',
+            details: 'Major electrical fault identified'
+          },
+          {
+            date: '2024-03-10',
+            action: 'Escalated',
+            by: 'System',
+            details: 'Resolution deadline missed'
+          }
+        ],
+        affectedAreas: ['Sector 4 Market Area'],
+        impactMetrics: {
+          businessesAffected: 50,
+          estimatedRepairTime: '24 hours',
+          estimatedCost: '₹2,00,000'
+        }
       }
-    }
-  }));
+    ];
+
+    setEscalatedIssues(dummyEscalatedIssues);
+  }, []);
 
   useEffect(() => {
     const getUserInfo = async () => {
@@ -944,7 +1028,13 @@ const MunicipalDashboard = () => {
                 <StarIcon className="w-5 h-5 text-yellow-400 mr-1" />
                 <span className="text-sm font-medium text-gray-900">{counsellor.rating}</span>
               </div>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+              <button 
+                onClick={() => {
+                  setSelectedCounsellor(counsellor);
+                  setShowCounsellorProfile(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+              >
                 View Profile
               </button>
             </div>
@@ -992,7 +1082,7 @@ const MunicipalDashboard = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Navigation Tabs */}
         <div className="flex space-x-1 mb-6 bg-white p-1 rounded-lg shadow-sm border border-gray-200 w-fit">
-          {['overview', 'issues', 'counsellors', 'reports'].map((tab) => (
+          {['overview', 'issues', 'counsellors', 'profile'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -1013,46 +1103,48 @@ const MunicipalDashboard = () => {
             {renderOverviewStats()}
             {renderAreaStats()}
             <h2 className="text-xl font-bold text-gray-900 mb-4">Recent High Priority Issues</h2>
-            {renderIssuesList()}
+            {escalatedIssues.length > 0 ? (
+              <Issues escalatedIssues={escalatedIssues} />
+            ) : (
+              <div className="bg-white rounded-lg p-6 text-center">
+                <p className="text-gray-500">No escalated issues at the moment</p>
+              </div>
+            )}
           </>
         )}
 
         {activeTab === 'issues' && (
-          <>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-              <div className="flex items-start">
-                <AlertTriangleIcon className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
-                <div>
-                  <h3 className="text-amber-800 font-medium">Escalated Issues</h3>
-                  <p className="text-amber-700 text-sm">
-                    These issues have exceeded their deadline and require immediate attention from the Municipal Corporation.
-                  </p>
-                </div>
-              </div>
+          escalatedIssues.length > 0 ? (
+            <Issues escalatedIssues={escalatedIssues} />
+          ) : (
+            <div className="bg-white rounded-lg p-6 text-center">
+              <p className="text-gray-500">No escalated issues at the moment</p>
             </div>
-            {renderFilters()}
-            {renderIssuesList()}
-          </>
+          )
         )}
 
         {activeTab === 'counsellors' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Area Counsellor Verification Requests</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Area Counsellor Management</h2>
             {renderRequests()}
             {renderAreaCounsellors()}
           </div>
         )}
 
-        {activeTab === 'reports' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Reports & Analytics</h2>
-            <p className="text-gray-500">Coming soon...</p>
-          </div>
+        {activeTab === 'profile' && (
+          <Profile currentUser={currentUser} />
         )}
       </div>
 
       {/* Issue Details Modal */}
       {showIssueModal && renderIssueDetailsModal()}
+
+      {showCounsellorProfile && selectedCounsellor && (
+        <CounsellorProfile 
+          counsellor={selectedCounsellor}
+          onClose={() => setShowCounsellorProfile(false)}
+        />
+      )}
     </div>
   );
 };
