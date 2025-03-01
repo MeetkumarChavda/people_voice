@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import L from 'leaflet';
 import { Oval } from 'react-loader-spinner';
 import ProtectedRoute from './components/ProtectedRoutes';
+import './i18n/i18n'; // Import i18n configuration
 
 const Home = lazy(() => import('./pages/Home'));
 const CitizenFeed = lazy(() => import('./pages/Citizen/CitizenFeed'));
@@ -70,9 +71,7 @@ function App() {
                             </ProtectedRoute>
                         } />
                         <Route path="/counsellor-dashboard" element={
-                            <ProtectedRoute allowedRoles={['government']}>
-                                <AreaCounsellorDashboard />
-                            </ProtectedRoute>
+                            <AreaCounsellorDashboard/>
                         } />
                         <Route path="/citizenfeed" element={
                             <ProtectedRoute allowedRoles={['citizen', 'organization']}>

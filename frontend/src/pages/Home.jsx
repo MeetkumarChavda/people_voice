@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useTranslation } from 'react-i18next';
 import { 
   MapPin, 
   Bell, 
@@ -21,17 +22,30 @@ import {
   Users,
   BarChart2,
   Award,
-  Camera
+  Camera,
+  Globe
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-
 const HomePage = () => {
+  const { t, i18n } = useTranslation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('public');
   const [issueCount, setIssueCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
   const [userCount, setUserCount] = useState(0);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+
+  const languages = [
+    { code: 'en', name: 'English' },
+    { code: 'hi', name: 'हिंदी' },
+    { code: 'gu', name: 'ગુજરાતી' }
+  ];
+
+  const changeLanguage = (languageCode) => {
+    i18n.changeLanguage(languageCode);
+    setLanguageMenuOpen(false);
+  };
   
   //Counter Effect
   useEffect(() => {
@@ -46,52 +60,52 @@ const HomePage = () => {
 
   // Categories 
   const categories = [
-    { name: 'Infrastructure', icon: <Building className="h-6 w-6" />, description: "Roads, bridges, public facilities" },
-    { name: 'Public Safety', icon: <Shield className="h-6 w-6" />, description: "Security concerns, hazards" },
-    { name: 'Environment', icon: <MapPin className="h-6 w-6" />, description: "Pollution, parks, green spaces" },
-    { name: 'Transportation', icon: <MapPin className="h-6 w-6" />, description: "Public transit, traffic issues" },
-    { name: 'Govt. Services', icon: <FileText className="h-6 w-6" />, description: "Documentation, assistance" },
-    { name: 'Social Welfare', icon: <Users className="h-6 w-6" />, description: "Community support programs" },
+    { name: t('categories.publicIssues.infrastructure.name'), icon: <Building className="h-6 w-6" />, description: t('categories.publicIssues.infrastructure.description') },
+    { name: t('categories.publicIssues.publicSafety.name'), icon: <Shield className="h-6 w-6" />, description: t('categories.publicIssues.publicSafety.description') },
+    { name: t('categories.publicIssues.environment.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.publicIssues.environment.description') },
+    { name: t('categories.publicIssues.transportation.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.publicIssues.transportation.description') },
+    { name: t('categories.publicIssues.govtServices.name'), icon: <FileText className="h-6 w-6" />, description: t('categories.publicIssues.govtServices.description') },
+    { name: t('categories.publicIssues.socialWelfare.name'), icon: <Users className="h-6 w-6" />, description: t('categories.publicIssues.socialWelfare.description') }
   ];
 
   // private services
   const privateServices = [
-    { name: 'Plumber', icon: <MapPin className="h-6 w-6" />, description: "Find trusted plumbers near you" },
-    { name: 'Electrician', icon: <MapPin className="h-6 w-6" />, description: "Certified electricians available" },
-    { name: 'Painter', icon: <MapPin className="h-6 w-6" />, description: "Quality painting services" },
-    { name: 'Doctor', icon: <MapPin className="h-6 w-6" />, description: "Find local doctors and clinics" },
+    { name: t('categories.privateServices.plumber.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.privateServices.plumber.description') },
+    { name: t('categories.privateServices.electrician.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.privateServices.electrician.description') },
+    { name: t('categories.privateServices.painter.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.privateServices.painter.description') },
+    { name: t('categories.privateServices.doctor.name'), icon: <MapPin className="h-6 w-6" />, description: t('categories.privateServices.doctor.description') }
   ];
 
   // Process steps with better descriptions
   const processSteps = [
     {
-      title: "Report an Issue",
-      description: "Take a photo, add location details, and describe the community problem you've spotted.",
+      title: t('process.steps.report.title'),
+      description: t('process.steps.report.description'),
       icon: <Camera className="h-6 w-6" />
     },
     {
-      title: "Counselor Review",
-      description: "Your area counselor validates the issue and commits to a resolution timeline.",
+      title: t('process.steps.review.title'),
+      description: t('process.steps.review.description'),
       icon: <CheckCircle className="h-6 w-6" />
     },
     {
-      title: "Track Progress",
-      description: "Follow real-time status updates as your issue moves through the resolution pipeline.",
+      title: t('process.steps.track.title'),
+      description: t('process.steps.track.description'),
       icon: <BarChart2 className="h-6 w-6" />
     },
     {
-      title: "Verified Resolution",
-      description: "Authorities provide photographic proof of the completed work and issue closure.",
+      title: t('process.steps.resolve.title'),
+      description: t('process.steps.resolve.description'),
       icon: <Award className="h-6 w-6" />
     }
   ];
 
   return (
     <div className="min-h-screen bg-white">
-              <Helmet>
-                 <title>Home | People Voice</title>
-                 <meta name="description" content="Welcome to People Voice - Share your voice and connect with others" />
-             </Helmet>
+      <Helmet>
+        <title>Home | People Voice</title>
+        <meta name="description" content="Welcome to People Voice - Share your voice and connect with others" />
+      </Helmet>
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center py-4">
@@ -103,19 +117,44 @@ const HomePage = () => {
             </div>
             
             <nav className="hidden md:flex items-center space-x-8">
-              <a href="/" className="text-gray-800 font-medium hover:text-blue-600 transition">Home</a>
-              <a href="/" className="text-gray-600 hover:text-blue-600 transition">How It Works</a>
-              <a href="/" className="text-gray-600 hover:text-blue-600 transition">Report Issue</a>
-              <a href="/" className="text-gray-600 hover:text-blue-600 transition">Services</a>
-              <a href="/" className="text-gray-600 hover:text-blue-600 transition">About Us</a>
+              <a href="/" className="text-gray-800 font-medium hover:text-blue-600 transition">{t('nav.home')}</a>
+              <a href="/" className="text-gray-600 hover:text-blue-600 transition">{t('nav.howItWorks')}</a>
+              <a href="/" className="text-gray-600 hover:text-blue-600 transition">{t('nav.reportIssue')}</a>
+              <a href="/" className="text-gray-600 hover:text-blue-600 transition">{t('nav.services')}</a>
+              <a href="/" className="text-gray-600 hover:text-blue-600 transition">{t('nav.aboutUs')}</a>
             </nav>
             
             <div className="hidden md:flex items-center space-x-4">
+              {/* Language Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setLanguageMenuOpen(!languageMenuOpen)}
+                  className="flex items-center px-3 py-2 rounded-lg border border-gray-300 hover:border-blue-500 transition"
+                >
+                  <Globe size={20} className="mr-2" />
+                  <span>{languages.find(lang => lang.code === i18n.language)?.name || 'English'}</span>
+                </button>
+                
+                {languageMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
+                    {languages.map((language) => (
+                      <button
+                        key={language.code}
+                        onClick={() => changeLanguage(language.code)}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 transition"
+                      >
+                        {language.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <Link to="/login" className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium">
-                Log In
+                {t('nav.login')}
               </Link>
               <Link to="/signup" className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium">
-                Sign Up
+                {t('nav.signup')}
               </Link>
             </div>
             
@@ -135,17 +174,38 @@ const HomePage = () => {
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-gray-100">
               <nav className="flex flex-col space-y-4">
-                <a href="#" className="text-gray-800 font-medium hover:text-blue-600 transition">Home</a>
-                <a href="#" className="text-gray-600 hover:text-blue-600 transition">How It Works</a>
-                <a href="#" className="text-gray-600 hover:text-blue-600 transition">Report Issue</a>
-                <a href="#" className="text-gray-600 hover:text-blue-600 transition">Services</a>
-                <a href="#" className="text-gray-600 hover:text-blue-600 transition">About Us</a>
+                <a href="#" className="text-gray-800 font-medium hover:text-blue-600 transition">{t('nav.home')}</a>
+                <a href="#" className="text-gray-600 hover:text-blue-600 transition">{t('nav.howItWorks')}</a>
+                <a href="#" className="text-gray-600 hover:text-blue-600 transition">{t('nav.reportIssue')}</a>
+                <a href="#" className="text-gray-600 hover:text-blue-600 transition">{t('nav.services')}</a>
+                <a href="#" className="text-gray-600 hover:text-blue-600 transition">{t('nav.aboutUs')}</a>
+                
+                {/* Language Selector for Mobile */}
+                <div className="py-2">
+                  <div className="text-sm text-gray-500 mb-2">Select Language</div>
+                  <div className="space-y-2">
+                    {languages.map((language) => (
+                      <button
+                        key={language.code}
+                        onClick={() => changeLanguage(language.code)}
+                        className={`w-full text-left px-3 py-2 rounded-lg transition ${
+                          i18n.language === language.code
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        {language.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex flex-col space-y-3 pt-3">
                   <Link to="/login" className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium">
-                    Log In
+                    {t('nav.login')}
                   </Link>
                   <Link to="/signup" className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium">
-                    Sign Up
+                    {t('nav.signup')}
                   </Link>
                 </div>
               </nav>
@@ -166,17 +226,17 @@ const HomePage = () => {
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 mb-12 md:mb-0">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-                Your Voice. Your Community. <span className="text-blue-200">Real Change.</span>
+                {t('hero.title')} <span className="text-blue-200">{t('hero.highlight')}</span>
               </h1>
               <p className="text-xl text-blue-100 mb-8 max-w-lg">
-                Connect with your local government, report community issues, and track real progress in your neighborhood.
+                {t('hero.subtitle')}
               </p>
               <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                 <button className="px-8 py-3 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition shadow-lg">
-                  Report an Issue
+                  {t('hero.reportButton')}
                 </button>
                 <button className="px-8 py-3 bg-blue-700 text-white rounded-lg font-medium hover:bg-blue-800 transition border border-blue-400">
-                  Find Services
+                  {t('hero.findServices')}
                 </button>
               </div>
             </div>
@@ -250,7 +310,7 @@ const HomePage = () => {
                 <Bell className="h-8 w-8" />
               </div>
               <h3 className="text-4xl font-bold text-blue-600 mb-2">{issueCount.toLocaleString()}</h3>
-              <p className="text-gray-600 font-medium">Issues Reported</p>
+              <p className="text-gray-600 font-medium">{t('stats.issuesReported')}</p>
             </div>
             
             <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-6 text-center shadow-sm transform transition hover:scale-105 hover:shadow-md">
@@ -258,7 +318,7 @@ const HomePage = () => {
                 <CheckCircle className="h-8 w-8" />
               </div>
               <h3 className="text-4xl font-bold text-green-600 mb-2">{resolvedCount.toLocaleString()}</h3>
-              <p className="text-gray-600 font-medium">Issues Resolved</p>
+              <p className="text-gray-600 font-medium">{t('stats.issuesResolved')}</p>
             </div>
             
             <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-6 text-center shadow-sm transform transition hover:scale-105 hover:shadow-md">
@@ -266,7 +326,7 @@ const HomePage = () => {
                 <Users className="h-8 w-8" />
               </div>
               <h3 className="text-4xl font-bold text-purple-600 mb-2">{userCount.toLocaleString()}</h3>
-              <p className="text-gray-600 font-medium">Active Citizens</p>
+              <p className="text-gray-600 font-medium">{t('stats.activeCitizens')}</p>
             </div>
           </div>
         </div>
