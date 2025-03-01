@@ -11,6 +11,7 @@ const config = require('./config/server.config');
 const tempRoutes = require('./routes/temp.routes');
 const issueRoutes = require('./routes/issue.routes');
 const userRoutes = require("./routes/user.routes");
+const areaRoutes = require('./routes/area.routes');
 
 // Initialize express app
 const app = express();
@@ -35,6 +36,7 @@ if (config.nodeEnv === "development") {
 app.use("/api/v1/temp", tempRoutes);
 app.use("/api/auth", userRoutes);
 app.use('/api/issues', issueRoutes);
+app.use('/api/areas', areaRoutes);
 
 
 
