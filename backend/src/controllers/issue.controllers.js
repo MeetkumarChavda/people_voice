@@ -390,7 +390,193 @@ const issueController = {
       console.error('Error finding issues by location:', error);
       res.status(500).json({ error: error.message });
     }
+  },
+
+  // Get issues by priority with search
+ // In issue.controllers.js - add or replace the existing getIssuesByPriority
+
+// Get issues by priority with advanced filtering
+getIssuesByPriorityAdvanced: async (req, res) => {
+  try {
+    const {
+      search = '', // For title/description search
+      type,
+      category,
+      startDate,
+      endDate,
+      page = 1,
+      limit = 10,
+      // Custom priority weights
+      highPriorityWeight = 50,
+      redZoneWeight = 100,
+      inProgressWeight = 30,
+      extendedWeight = 40,
+      pendingWeight = 20,
+      verifiedWeight = 25,
+      ageWeight = 2,
+      maxAgeScore = 30,
+      upvoteWeight = 1,
+      commentWeight = 0.5,
+      // Sort options
+      sortField = 'priorityScore',
+      sortDirection = 'desc'
+    } = req.query;
+
+    // Build base query
+    let query = {};
+
+    // Add search conditions
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        // Add reporter username search
+        { 'reportedBy.username': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add type filter
+    if (type) {
+      query.issueType = type;
+    }
+
+    // Add category filter
+    if (category) {
+      query.category = category;
+    }
+
+    // Add date range filter
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get current date for age calculation
+    const currentDate = new Date();
+
+    // Determine sort direction
+    const sortOrder = sortDirection === 'asc' ? 1 : -1;
+
+    // Fetch issues with all required fields
+    const issues = await Issue.aggregate([
+      // Match the query conditions
+      { $match: query },
+
+      // Add calculated fields
+      {
+        $addFields: {
+          // Calculate issue age in days
+          ageInDays: {
+            $divide: [
+              { $subtract: [currentDate, "$createdAt"] },
+              1000 * 60 * 60 * 24 // Convert to days
+            ]
+          },
+          // Count total comments
+          commentCount: { $size: "$comments" },
+        }
+      },
+
+      // Calculate priority score
+      {
+        $addFields: {
+          priorityScore: {
+            $add: [
+              // Base score from status weight
+              {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ["$status", "highPriority"] }, then: parseFloat(highPriorityWeight) },
+                    { case: { $eq: ["$status", "redZone"] }, then: parseFloat(redZoneWeight) },
+                    { case: { $eq: ["$status", "inProgress"] }, then: parseFloat(inProgressWeight) },
+                    { case: { $eq: ["$status", "extended"] }, then: parseFloat(extendedWeight) },
+                    { case: { $eq: ["$status", "pending"] }, then: parseFloat(pendingWeight) },
+                    { case: { $eq: ["$status", "verified"] }, then: parseFloat(verifiedWeight) }
+                  ],
+                  default: 0
+                }
+              },
+              // Age score (capped at maxAgeScore)
+              { $min: [
+                { $multiply: ["$ageInDays", parseFloat(ageWeight)] }, 
+                parseFloat(maxAgeScore)
+              ]},
+              // Upvotes score
+              { $multiply: ["$upvotes", parseFloat(upvoteWeight)] },
+              // Comments score
+              { $multiply: ["$commentCount", parseFloat(commentWeight)] }
+            ]
+          }
+        }
+      },
+
+      // Sort by specified field and direction
+      { $sort: { [sortField]: sortOrder } },
+
+      // Pagination
+      { $skip: skip },
+      { $limit: parseInt(limit) },
+
+      // Project final fields
+      {
+        $project: {
+          title: 1,
+          description: 1,
+          status: 1,
+          category: 1,
+          issueType: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          upvotes: 1,
+          commentCount: 1,
+          ageInDays: { $round: ["$ageInDays", 1] },
+          priorityScore: { $round: ["$priorityScore", 1] },
+          location: 1,
+          photos: 1,
+          currentPhase: 1,
+          reportedBy: 1,
+          phaseDetails: 1
+        }
+      }
+    ]);
+
+    // Get total count for pagination
+    const total = await Issue.countDocuments(query);
+
+    res.status(200).json({
+      issues,
+      totalPages: Math.ceil(total / parseInt(limit)),
+      currentPage: parseInt(page),
+      totalIssues: total,
+      appliedWeights: {
+        status: {
+          redZone: parseFloat(redZoneWeight),
+          highPriority: parseFloat(highPriorityWeight),
+          extended: parseFloat(extendedWeight),
+          inProgress: parseFloat(inProgressWeight),
+          verified: parseFloat(verifiedWeight),
+          pending: parseFloat(pendingWeight)
+        },
+        age: `${ageWeight} points per day (max ${maxAgeScore})`,
+        upvotes: `${upvoteWeight} points each`,
+        comments: `${commentWeight} points each`,
+        sortedBy: sortField,
+        sortDirection: sortDirection
+      }
+    });
+  } catch (error) {
+    console.error('Error getting issues by priority:', error);
+    res.status(500).json({ error: error.message });
   }
+}
 };
 
 module.exports = issueController;

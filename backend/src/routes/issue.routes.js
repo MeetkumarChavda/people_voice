@@ -33,4 +33,9 @@ router.patch('/:id/phase', uploadProofPhotos, issueController.updatePhaseDetails
 // Find issues by location
 router.get('/location/nearby', issueController.findIssuesByLocation);
 
+// Add this to your issue.routes.js file
+
+// Get issues by priority with advanced filtering and custom weights
+router.get('/priority/advanced', issueController.getIssuesByPriorityAdvanced);
+
 module.exports = router;
