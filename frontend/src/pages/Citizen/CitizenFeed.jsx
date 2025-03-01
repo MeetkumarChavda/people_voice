@@ -274,14 +274,19 @@ const CitizenFeed = () => {
     };
 
     // Handle post upvote
-    const handleUpvote = () => {
-        if (!upvoted) {
-            setUpvoteCount(upvoteCount + 1);
-            setUpvoted(true);
-        } else {
-            setUpvoteCount(upvoteCount - 1);
-            setUpvoted(false);
-        }
+    const handleUpvote = async (issueId) => {
+        console.log(JSON.parse(localStorage.getItem("user")).userId);
+        JSON.parse(localStorage.getItem("user")).userId;
+        await apiClient
+            .post(`/issues/${issueId}/upvote`, {
+                userId: JSON.parse(localStorage.getItem("user")).id,
+            })
+            .then((res) => {
+                console.log(res);
+            })
+            .catch((error) => {
+                console.error("Error upvoting:", error);
+            });
     };
 
     // Handle comment upvote
@@ -932,39 +937,6 @@ const CitizenFeed = () => {
                                     </div>
 
                                     {/* Enhanced Upvote Button */}
-                                    <div className="mb-6">
-                                        <button
-                                            onClick={handleUpvote}
-                                            className={`flex items-center px-3 py-2 rounded-lg ${
-                                                upvoted
-                                                    ? "bg-blue-50 border border-blue-200"
-                                                    : "bg-gray-50 border border-gray-200 hover:bg-blue-50 hover:border-blue-200"
-                                            } transition-all duration-300 group`}
-                                        >
-                                            <ArrowUpIcon
-                                                size={20}
-                                                className={`mr-2 transform transition-transform duration-300 ${
-                                                    upvoted
-                                                        ? "text-blue-600 scale-110"
-                                                        : "text-gray-500 group-hover:text-blue-600 group-hover:scale-110"
-                                                }`}
-                                            />
-                                            <span
-                                                className={`font-medium ${
-                                                    upvoted
-                                                        ? "text-blue-600"
-                                                        : "text-gray-600 group-hover:text-blue-600"
-                                                }`}
-                                            >
-                                                {upvoteCount} upvotes
-                                            </span>
-                                        </button>
-
-                                        {/* Upvoters Display */}
-                                        <div className="mt-2 text-xs text-gray-500">
-                                            {getUpvotersText(upvoteCount)}
-                                        </div>
-                                    </div>
 
                                     {/* Progress tracker - Enhanced */}
                                     <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
