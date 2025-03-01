@@ -13,20 +13,41 @@ import {
   ClockIcon as ClockIconSolid,
   XIcon,
 } from 'lucide-react';
+import apiClient from '../../services/api.config';
+import { toast } from 'react-hot-toast';
 
-const Issues = ({ escalatedIssues = [] }) => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedPhase, setSelectedPhase] = useState('all');
+const API_URL = apiClient.defaults.baseURL || 'http://localhost:5000';
+
+const Issues = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
-  const [issuePhaseUpdate, setIssuePhaseUpdate] = useState({
-    status: '',
-    comments: '',
-    proof: []
+  const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalIssues: 0
   });
-  const [issues, setIssues] = useState(escalatedIssues);
+  const [filters, setFilters] = useState({
+    page: 1,
+    limit: 10,
+    status: '',
+    category: 'all',
+    currentPhase: 'all',
+    sortBy: 'priorityScore',
+    sortOrder: 'desc'
+  });
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState(null);
+  const [issueUpdate, setIssueUpdate] = useState({
+    title: '',
+    description: '',
+    category: '',
+    location: { address: '' },
+    photos: []
+  });
 
   const categories = [
     { id: 'all', name: 'All Issues' },
@@ -46,31 +67,139 @@ const Issues = ({ escalatedIssues = [] }) => {
     { id: 'highPriority', name: 'High Priority' }
   ];
 
-  const handlePhaseUpdate = async (issueId, phase, updateData) => {
+  const fetchIssues = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      // API call would go here
-      setShowIssueModal(false);
+      const params = {
+        page: filters.page,
+        limit: filters.limit,
+        category: filters.category !== 'all' ? filters.category : '',
+        currentPhase: filters.currentPhase !== 'all' ? filters.currentPhase : '',
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
+        search: searchQuery
+      };
+
+      const response = await apiClient.get("/issues/priority/advanced", { params });
+      console.log("Fetched issues:", response);
+      
+      // Handle the response data structure
+      const issuesData = response.issues || response;
+      setIssues(issuesData);
+      
+      // Update pagination if available in response
+      if (response.pagination) {
+        setPagination({
+          currentPage: response.pagination.currentPage,
+          totalPages: response.pagination.totalPages,
+          totalIssues: response.pagination.totalCount
+        });
+      }
     } catch (error) {
-      console.error('Phase update error:', error);
+      console.error('Error fetching issues:', error);
+      setError("Failed to fetch issues. Please try again later.");
+      toast.error('Failed to fetch issues');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProfile = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await apiClient.get("/auth/profile");
+      console.log("Fetched profile:", response);
+      const userData = response.user || response;
+      userData.avatar = userData.name.charAt(0);
+      setProfile(userData);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setError("Failed to fetch profile. Please try again later.");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    setIssues(escalatedIssues);
-  }, [escalatedIssues]);
+    fetchIssues();
+    fetchProfile();
+  }, [filters, searchQuery]);
 
-  // Filter issues based on search query and filters
-  const filteredIssues = issues.filter(issue => {
-    const matchesSearch = searchQuery.toLowerCase() === '' || 
-      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.location.toLowerCase().includes(searchQuery.toLowerCase());
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value,
+      page: 1 // Reset page when filters change
+    }));
+  };
 
-    const matchesCategory = selectedCategory === 'all' || issue.category === selectedCategory;
-    const matchesPhase = selectedPhase === 'all' || issue.phase === selectedPhase;
+  // Function to get correct image URL
+  const getImageUrl = (photoPath) => {
+    if (!photoPath) return '';
+    
+    // Handle various path formats
+    if (photoPath.startsWith('http')) {
+      return photoPath;
+    }
+    
+    // Remove any trailing quotes or commas from the path
+    const cleanPath = photoPath.replace(/'|,|_blank'$/g, '');
+    
+    // Ensure there's no double slash when joining URL parts
+    return `${API_URL}/${cleanPath.startsWith('/') ? cleanPath.substring(1) : cleanPath}`;
+  };
 
-    return matchesSearch && matchesCategory && matchesPhase;
-  });
+  const handleUpdateIssue = async (issueId) => {
+    try {
+      const formData = new FormData();
+      formData.append('title', issueUpdate.title);
+      formData.append('description', issueUpdate.description);
+      formData.append('category', issueUpdate.category);
+      formData.append('location', JSON.stringify(issueUpdate.location));
+      
+      // Append each photo to formData
+      if (issueUpdate.photos) {
+        issueUpdate.photos.forEach((photo) => {
+          formData.append('photos', photo);
+        });
+      }
+
+      await apiClient.put(`/issues/${issueId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      toast.success('Issue updated successfully');
+      setShowIssueModal(false);
+      fetchIssues(); // Refresh the issues list
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error(error.response?.data?.error || 'Failed to update issue');
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setIssueUpdate(prev => ({
+      ...prev,
+      photos: [...prev.photos, ...files]
+    }));
+  };
+
+  useEffect(() => {
+    if (selectedIssue) {
+      setIssueUpdate({
+        title: selectedIssue.title || '',
+        description: selectedIssue.description || '',
+        category: selectedIssue.category || '',
+        location: selectedIssue.location || { address: '' },
+        photos: []
+      });
+    }
+  }, [selectedIssue]);
 
   const renderFilters = () => (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
@@ -90,8 +219,8 @@ const Issues = ({ escalatedIssues = [] }) => {
         
         <div className="flex space-x-2">
           <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            value={filters.category}
+            onChange={(e) => handleFilterChange('category', e.target.value)}
             className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {categories.map(category => (
@@ -100,8 +229,8 @@ const Issues = ({ escalatedIssues = [] }) => {
           </select>
           
           <select
-            value={selectedPhase}
-            onChange={(e) => setSelectedPhase(e.target.value)}
+            value={filters.currentPhase}
+            onChange={(e) => handleFilterChange('currentPhase', e.target.value)}
             className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             {phases.map(phase => (
@@ -122,32 +251,41 @@ const Issues = ({ escalatedIssues = [] }) => {
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="all">All Priorities</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
-            </div>
-            
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
-              <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <option value="newest">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="priority">Priority</option>
+              <select 
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="priorityScore">Priority Score</option>
+                <option value="createdAt">Date Created</option>
                 <option value="upvotes">Most Upvotes</option>
+                <option value="commentCount">Most Comments</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+              <select
+                value={filters.sortOrder}
+                onChange={(e) => handleFilterChange('sortOrder', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Items per page</label>
+              <select
+                value={filters.limit}
+                onChange={(e) => handleFilterChange('limit', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
               </select>
             </div>
           </div>
@@ -157,249 +295,142 @@ const Issues = ({ escalatedIssues = [] }) => {
   );
 
   const renderIssueCard = (issue) => {
-    const getPriorityColor = (priority) => {
-      switch (priority) {
-        case 'high': return 'text-red-600 bg-red-50';
+    if (!issue) return null;
+
+    const getStatusColor = (status) => {
+      switch (status?.toLowerCase()) {
+        case 'high':
+        case 'urgent':
+        case 'critical': return 'text-red-600 bg-red-50';
         case 'medium': return 'text-amber-600 bg-amber-50';
         case 'low': return 'text-green-600 bg-green-50';
+        case 'resolved': return 'text-blue-600 bg-blue-50';
         default: return 'text-gray-600 bg-gray-50';
       }
     };
 
-    const getPhaseIcon = (phase) => {
-      switch (phase) {
-        case 'verification':
-          return <AlertTriangleIcon className="w-5 h-5 text-blue-600" />;
-        case 'inProgress':
-          return <ClockIconSolid className="w-5 h-5 text-amber-600" />;
-        case 'resolved':
-          return <CheckIcon className="w-5 h-5 text-green-600" />;
-        case 'highPriority':
+    const getPhaseIcon = (priority) => {
+      switch (priority?.toLowerCase()) {
+        case 'high':
+        case 'urgent':
+        case 'critical':
           return <AlertTriangleIcon className="w-5 h-5 text-red-600" />;
+        case 'medium':
+          return <ClockIconSolid className="w-5 h-5 text-amber-600" />;
+        case 'low':
+          return <CheckIcon className="w-5 h-5 text-green-600" />;
         default:
           return <FileTextIcon className="w-5 h-5 text-gray-600" />;
       }
     };
 
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-6">
+      <div key={issue._id} className="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
-            {getPhaseIcon(issue.phase)}
+            {getPhaseIcon(issue.priority)}
             <div>
-              <h3 className="font-medium text-gray-900">{issue.title}</h3>
-              <p className="text-sm text-gray-500">{issue.location}</p>
+              <h3 className="font-medium text-gray-900">{issue.title || 'Untitled Issue'}</h3>
+              <p className="text-sm text-gray-500">
+                {issue.location?.address || issue.location || 'No location specified'}
+              </p>
             </div>
           </div>
-          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getPriorityColor(issue.priority)}`}>
-            {issue.priority.charAt(0).toUpperCase() + issue.priority.slice(1)} Priority
+          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusColor(issue.priority)}`}>
+            {issue.priority ? issue.priority.toUpperCase() : 'NO PRIORITY'}
           </span>
         </div>
 
-        <p className="text-gray-600 text-sm mb-4">{issue.description}</p>
-
-        <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
-          <div className="flex items-center">
-            <MapPinIcon className="w-4 h-4 mr-1" />
-            {issue.location}
-          </div>
-          <div className="flex items-center">
-            <ClockIcon className="w-4 h-4 mr-1" />
-            {issue.reportedAt}
-          </div>
-        </div>
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+          {issue.description || 'No description provided'}
+        </p>
 
         <div className="flex items-center space-x-4 mb-4">
           <div className="flex items-center text-gray-500">
             <ThumbsUpIcon className="w-4 h-4 mr-1" />
-            <span className="text-sm">{issue.upvotes}</span>
+            <span className="text-sm">{issue.upvotes || 0}</span>
           </div>
           <div className="flex items-center text-gray-500">
             <MessageSquareIcon className="w-4 h-4 mr-1" />
-            <span className="text-sm">{issue.comments}</span>
+            <span className="text-sm">{issue.comments?.length || 0}</span>
           </div>
-          <div className="flex items-center text-gray-500">
-            <ImageIcon className="w-4 h-4 mr-1" />
-            <span className="text-sm">{issue.images}</span>
+          {issue.images && issue.images.length > 0 && (
+            <div className="flex items-center text-gray-500">
+              <ImageIcon className="w-4 h-4 mr-1" />
+              <span className="text-sm">{issue.images.length}</span>
+            </div>
+          )}
+          {issue.priorityScore && (
+            <div className="flex items-center text-gray-500">
+              <AlertTriangleIcon className="w-4 h-4 mr-1" />
+              <span className="text-sm">Score: {issue.priorityScore}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center">
+              {issue.reportedBy?.name?.charAt(0) || 'A'}
+            </div>
+            <span>{issue.reportedBy?.name || 'Anonymous'}</span>
+          </div>
+          <div className="flex items-center">
+            <ClockIcon className="w-4 h-4 mr-1" />
+            <span>{new Date(issue.createdAt).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            })}</span>
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Escalated From</p>
-              <p className="text-sm text-gray-500">{issue.areaCounsellor.name}</p>
-            </div>
-            <button 
-              onClick={() => {
-                setSelectedIssue(issue);
-                setShowIssueModal(true);
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              Manage Issue
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderIssueModal = () => {
-    if (!selectedIssue) return null;
-
-    return (
-      <div className="fixed inset-0 flex items-center justify-center z-50">
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm"></div>
-        <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 relative z-50 shadow-xl">
-          <div className="flex justify-between items-start mb-6">
-            <h2 className="text-xl font-bold text-gray-900">{selectedIssue.title}</h2>
-            <button 
-              onClick={() => setShowIssueModal(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <XIcon className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {/* Issue Details */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Location</p>
-                  <p className="font-medium">{selectedIssue.location}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Reported On</p>
-                  <p className="font-medium">{selectedIssue.reportedAt}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Priority</p>
-                  <p className="font-medium capitalize">{selectedIssue.priority}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <p className="font-medium capitalize">{selectedIssue.phase}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Timeline */}
-            {selectedIssue.timeline && (
-              <div>
-                <h3 className="font-medium text-gray-900 mb-4">Issue Timeline</h3>
-                <div className="space-y-4">
-                  {selectedIssue.timeline.map((event, index) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <div className="w-2 h-2 mt-2 rounded-full bg-blue-600"></div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <p className="text-sm font-medium text-gray-900">{event.action}</p>
-                          <span className="text-xs text-gray-500">by {event.by}</span>
-                        </div>
-                        <p className="text-sm text-gray-600">{event.details}</p>
-                        <p className="text-xs text-gray-500 mt-1">{event.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Impact Metrics */}
-            {selectedIssue.impactMetrics && (
-              <div className="bg-amber-50 rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3">Impact Assessment</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-600">Households Affected</p>
-                    <p className="font-medium text-amber-900">{selectedIssue.impactMetrics.householdsAffected}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Estimated Repair Time</p>
-                    <p className="font-medium text-amber-900">{selectedIssue.impactMetrics.estimatedRepairTime}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Estimated Cost</p>
-                    <p className="font-medium text-amber-900">{selectedIssue.impactMetrics.estimatedCost}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Description */}
-            <div>
-              <h3 className="font-medium text-gray-900 mb-2">Description</h3>
-              <p className="text-gray-600">{selectedIssue.description}</p>
-            </div>
-
-            {/* Affected Areas */}
-            {selectedIssue.affectedAreas && (
-              <div>
-                <h3 className="font-medium text-gray-900 mb-2">Affected Areas</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedIssue.affectedAreas.map((area, index) => (
-                    <span key={index} className="px-2 py-1 bg-gray-100 rounded-full text-sm text-gray-600">
-                      {area}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Update Status */}
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="font-medium text-gray-900 mb-4">Update Status</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    New Status
-                  </label>
-                  <select
-                    value={issuePhaseUpdate.status}
-                    onChange={(e) => setIssuePhaseUpdate(prev => ({
-                      ...prev,
-                      status: e.target.value
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                  >
-                    <option value="">Select status</option>
-                    <option value="inProgress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="escalated">Escalated</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Comments
-                  </label>
-                  <textarea
-                    value={issuePhaseUpdate.comments}
-                    onChange={(e) => setIssuePhaseUpdate(prev => ({
-                      ...prev,
-                      comments: e.target.value
-                    }))}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
-                    placeholder="Add update comments..."
-                  />
-                </div>
-
-                <button
-                  onClick={() => handlePhaseUpdate(selectedIssue.id, issuePhaseUpdate)}
-                  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
-                >
-                  Update Issue
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="border-t border-gray-100 mt-4 pt-4">
+          <button 
+            onClick={() => {
+              setSelectedIssue(issue);
+              setShowIssueModal(true);
+            }}
+            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
+            Manage Issue
+          </button>
         </div>
       </div>
     );
   };
+
+  const renderPagination = () => (
+    <div className="flex justify-between items-center mt-6">
+      <div className="text-sm text-gray-500">
+        Showing {issues.length} of {pagination.totalIssues} issues
+      </div>
+      <div className="flex space-x-2">
+        <button
+          onClick={() => handleFilterChange('page', filters.page - 1)}
+          disabled={filters.page === 1}
+          className={`px-3 py-1 rounded ${
+            filters.page === 1 
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => handleFilterChange('page', filters.page + 1)}
+          disabled={filters.page === pagination.totalPages}
+          className={`px-3 py-1 rounded ${
+            filters.page === pagination.totalPages
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -407,26 +438,194 @@ const Issues = ({ escalatedIssues = [] }) => {
         <div className="flex items-start">
           <AlertTriangleIcon className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
           <div>
-            <h3 className="text-amber-800 font-medium">Escalated Issues</h3>
+            <h3 className="text-amber-800 font-medium">Issues Overview</h3>
             <p className="text-amber-700 text-sm">
-              These issues have exceeded their deadline and require immediate attention from the Municipal Corporation.
+              Total Issues: {pagination.totalIssues} | Current Page: {pagination.currentPage} of {pagination.totalPages}
             </p>
           </div>
         </div>
       </div>
+
       {renderFilters()}
-      {filteredIssues.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredIssues.map(issue => renderIssueCard(issue))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg p-6 text-center">
-          <p className="text-gray-500">No escalated issues match your filters</p>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <AlertTriangleIcon className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
+            <div>
+              <h3 className="text-red-800 font-medium">Error</h3>
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          </div>
         </div>
       )}
-      {showIssueModal && renderIssueModal()}
+
+      {profile && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-medium">
+              {profile.avatar}
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">{profile.name}</h3>
+              <p className="text-sm text-gray-500">{profile.email}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading issues...</p>
+        </div>
+      ) : issues.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {issues.map(issue => renderIssueCard(issue))}
+          </div>
+          {renderPagination()}
+        </>
+      ) : (
+        <div className="bg-white rounded-lg p-6 text-center">
+          <p className="text-gray-500">No issues found matching your filters</p>
+        </div>
+      )}
+
+      {showIssueModal && selectedIssue && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm"></div>
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 relative z-50">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Update Issue</h2>
+              <button 
+                onClick={() => setShowIssueModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={issueUpdate.title}
+                    onChange={(e) => setIssueUpdate(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    placeholder="Issue title"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={issueUpdate.description}
+                    onChange={(e) => setIssueUpdate(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    placeholder="Issue description"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={issueUpdate.category}
+                    onChange={(e) => setIssueUpdate(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  >
+                    <option value="">Select category</option>
+                    {categories.filter(c => c.id !== 'all').map(category => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={issueUpdate.location.address}
+                    onChange={(e) => setIssueUpdate(prev => ({ 
+                      ...prev, 
+                      location: { ...prev.location, address: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                    placeholder="Location address"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Add Photos
+                  </label>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                  />
+                  {issueUpdate.photos.length > 0 && (
+                    <div className="mt-2 text-sm text-gray-500">
+                      {issueUpdate.photos.length} new photo(s) selected
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedIssue.photos && selectedIssue.photos.length > 0 && (
+                <div>
+                  <h3 className="font-medium text-gray-900 mb-2">Current Photos</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedIssue.photos.map((photo, index) => {
+                      const photoUrl = getImageUrl(photo);
+                      return (
+                        <div key={index} className="relative group">
+                          <img 
+                            crossOrigin="anonymous"
+                            src={photoUrl}
+                            alt={`Issue photo ${index + 1}`}
+                            className="rounded-lg w-full h-48 object-cover"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => handleUpdateIssue(selectedIssue._id)}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Update Issue
+                </button>
+                <button
+                  onClick={() => setShowIssueModal(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
-export default Issues; 
+export default Issues;
