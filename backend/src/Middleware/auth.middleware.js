@@ -22,6 +22,16 @@ const authMiddleware = {
             const decoded = jwt.verify(token, JWT_SECRET);
 
             // Find user by ID from token
+            // Special case for admin
+            if (decoded.id === "admin" && decoded.role === "superAdmin") {
+                req.user = {
+                    id: "admin",
+                    role: "superAdmin",
+                    verified: true,
+                };
+                return next();
+            }
+
             const user = await User.findById(decoded.id).select(
                 "-passwordHash"
             );
@@ -38,6 +48,7 @@ const authMiddleware = {
                 id: user._id,
                 role: user.role,
                 category: user.category,
+                verified: user.verified,
                 parentMunicipalCorp: user.parentMunicipalCorp,
             };
 
@@ -65,6 +76,30 @@ const authMiddleware = {
                 error: error.message,
             });
         }
+    },
+
+    // Check if user is verified
+    checkVerified: (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized. Please authenticate.",
+            });
+        }
+
+        // Skip verification check for superAdmin
+        if (req.user.role === "superAdmin") {
+            return next();
+        }
+
+        if (!req.user.verified) {
+            return res.status(403).json({
+                success: false,
+                message: "Your account is pending verification. Please wait for approval.",
+            });
+        }
+
+        next();
     },
 
     // Check user role middleware

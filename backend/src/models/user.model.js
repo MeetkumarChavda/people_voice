@@ -82,11 +82,12 @@ const userSchema = new mongoose.Schema({
             // Required only for AreaCounsellor
             validate: {
                 validator: function (value) {
-                    return !(
-                        this.role === "government" &&
-                        this.category === "AreaCounsellor" &&
-                        !value
-                    );
+                    // Only validate if the role is government and category is AreaCounsellor
+                    // For other roles, this field is not required
+                    if (this.role === "government" && this.category === "AreaCounsellor") {
+                        return !!value; // Must have a value for AreaCounsellor
+                    }
+                    return true; // No validation needed for other roles
                 },
                 message: (props) =>
                     "Area Counsellor must be associated with a Municipal Corporation!",
@@ -96,7 +97,11 @@ const userSchema = new mongoose.Schema({
             type: String,
         },
     },
-    areaCode: String,
+    verified: {
+        type: Boolean,
+        default: false,
+    },
+    areaName: String,
     profilePicture: String,
     createdAt: {
         type: Date,

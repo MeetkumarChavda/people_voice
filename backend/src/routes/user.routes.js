@@ -57,32 +57,39 @@ const loginValidation = [
     check("password", "Password is required").exists(),
 ];
 
+const adminLoginValidation = [
+    check("username", "Username is required").exists(),
+    check("password", "Password is required").exists(),
+];
+
 // Public routes
 router.post("/register", registerValidation, authController.register);
 router.post("/login", loginValidation, authController.login);
+router.post("/admin/login", adminLoginValidation, authController.adminLogin);
 
 // Route to get all Municipal Corporations (for registration dropdown)
-router.get(
-    "/municipal-corporations",
-    authController.getAllMunicipalCorporations
-);
+// This route is public and doesn't require authentication
+router.get("/municipalcorporations", authController.getMunicipalCorporations);
 
 // Protected routes - require authentication
 router.get(
     "/profile",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     authController.getProfile
 );
 
 router.put(
     "/profile",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     authController.updateProfile
 );
 
 router.post(
     "/change-password",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     [
         check("currentPassword", "Current password is required").exists(),
         check(
@@ -91,6 +98,23 @@ router.post(
         ).isLength({ min: 6 }),
     ],
     authController.changePassword
+);
+
+// Verification request routes
+router.get(
+    "/verification-requests",
+    authMiddleware.authenticateUser,
+    authController.getPendingVerificationRequests
+);
+
+router.post(
+    "/verification-requests",
+    authMiddleware.authenticateUser,
+    [
+        check("userId", "User ID is required").exists(),
+        check("approved", "Approval status is required").isBoolean(),
+    ],
+    authController.handleVerificationRequest
 );
 
 // Get Area Counsellors by Municipal Corporation
@@ -122,6 +146,7 @@ router.get(
 router.get(
     "/municipal-dashboard",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     authMiddleware.checkRole(["government"]),
     authMiddleware.checkCategory(["MunicipalCorporation"]),
     (req, res) => {
@@ -137,6 +162,7 @@ router.get(
 router.get(
     "/counsellor-dashboard",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     authMiddleware.checkRole(["government"]),
     authMiddleware.checkCategory(["AreaCounsellor"]),
     (req, res) => {
@@ -152,6 +178,7 @@ router.get(
 router.get(
     "/ngo-dashboard",
     authMiddleware.authenticateUser,
+    authMiddleware.checkVerified,
     authMiddleware.checkRole(["organization"]),
     authMiddleware.checkCategory(["NGO"]),
     (req, res) => {

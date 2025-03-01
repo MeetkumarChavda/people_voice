@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with default config
 const apiClient = axios.create({
@@ -13,11 +13,10 @@ const apiClient = axios.create({
 // Add request interceptor for common headers
 apiClient.interceptors.request.use(
     (config) => {
-        // You can add auth token here if needed
-        // const token = localStorage.getItem('token');
-        // if (token) {
-        //     config.headers.Authorization = `Bearer ${token}`;
-        // }
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
     },
     (error) => {
@@ -45,5 +44,10 @@ apiClient.interceptors.response.use(
         }
     }
 );
+
+// API Endpoints:
+// - POST /auth/register - Register a new user
+// - POST /auth/login - Login a user
+// - GET /users/municipal-corporations - Get all verified municipal corporations (for area counsellor signup)
 
 export default apiClient; 
