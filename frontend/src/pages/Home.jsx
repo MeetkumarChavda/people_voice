@@ -17,21 +17,35 @@ import {
     FileText,
     Menu,
     X,
-    HelpCircle,
+    Globe,
     Users,
     BarChart2,
     Award,
     Camera,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-
+import { useTranslation } from "react-i18next";
 const HomePage = () => {
+    const { t, i18n } = useTranslation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("public");
     const [issueCount, setIssueCount] = useState(0);
     const [resolvedCount, setResolvedCount] = useState(0);
     const [userCount, setUserCount] = useState(0);
     const [user, setUser] = useState(null);
+    const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+
+    const languages = [
+        { code: "en", name: "English" },
+        { code: "hi", name: "हिंदी" },
+        { code: "gu", name: "ગુજરાતી" },
+    ];
+
+    const changeLanguage = (languageCode) => {
+        i18n.changeLanguage(languageCode);
+        setLanguageMenuOpen(false);
+    };
+
     const navigate = useNavigate();
 
     //Counter Effect
@@ -78,85 +92,87 @@ const HomePage = () => {
     // Categories
     const categories = [
         {
-            name: "Infrastructure",
+            name: t("categories.publicIssues.infrastructure.name"),
             icon: <Building className="h-6 w-6" />,
-            description: "Roads, bridges, public facilities",
+            description: t(
+                "categories.publicIssues.infrastructure.description"
+            ),
         },
         {
-            name: "Public Safety",
+            name: t("categories.publicIssues.publicSafety.name"),
             icon: <Shield className="h-6 w-6" />,
-            description: "Security concerns, hazards",
+            description: t("categories.publicIssues.publicSafety.description"),
         },
         {
-            name: "Environment",
+            name: t("categories.publicIssues.environment.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Pollution, parks, green spaces",
+            description: t("categories.publicIssues.environment.description"),
         },
         {
-            name: "Transportation",
+            name: t("categories.publicIssues.transportation.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Public transit, traffic issues",
+            description: t(
+                "categories.publicIssues.transportation.description"
+            ),
         },
         {
-            name: "Govt. Services",
+            name: t("categories.publicIssues.govtServices.name"),
             icon: <FileText className="h-6 w-6" />,
-            description: "Documentation, assistance",
+            description: t("categories.publicIssues.govtServices.description"),
         },
         {
-            name: "Social Welfare",
+            name: t("categories.publicIssues.socialWelfare.name"),
             icon: <Users className="h-6 w-6" />,
-            description: "Community support programs",
+            description: t("categories.publicIssues.socialWelfare.description"),
         },
     ];
 
     // private services
     const privateServices = [
         {
-            name: "Plumber",
+            name: t("categories.privateServices.plumber.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Find trusted plumbers near you",
+            description: t("categories.privateServices.plumber.description"),
         },
         {
-            name: "Electrician",
+            name: t("categories.privateServices.electrician.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Certified electricians available",
+            description: t(
+                "categories.privateServices.electrician.description"
+            ),
         },
         {
-            name: "Painter",
+            name: t("categories.privateServices.painter.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Quality painting services",
+            description: t("categories.privateServices.painter.description"),
         },
         {
-            name: "Doctor",
+            name: t("categories.privateServices.doctor.name"),
             icon: <MapPin className="h-6 w-6" />,
-            description: "Find local doctors and clinics",
+            description: t("categories.privateServices.doctor.description"),
         },
     ];
 
     // Process steps with better descriptions
     const processSteps = [
         {
-            title: "Report an Issue",
-            description:
-                "Take a photo, add location details, and describe the community problem you've spotted.",
+            title: t("process.steps.report.title"),
+            description: t("process.steps.report.description"),
             icon: <Camera className="h-6 w-6" />,
         },
         {
-            title: "Counselor Review",
-            description:
-                "Your area counselor validates the issue and commits to a resolution timeline.",
+            title: t("process.steps.review.title"),
+            description: t("process.steps.review.description"),
             icon: <CheckCircle className="h-6 w-6" />,
         },
         {
-            title: "Track Progress",
-            description:
-                "Follow real-time status updates as your issue moves through the resolution pipeline.",
+            title: t("process.steps.track.title"),
+            description: t("process.steps.track.description"),
             icon: <BarChart2 className="h-6 w-6" />,
         },
         {
-            title: "Verified Resolution",
-            description:
-                "Authorities provide photographic proof of the completed work and issue closure.",
+            title: t("process.steps.resolve.title"),
+            description: t("process.steps.resolve.description"),
             icon: <Award className="h-6 w-6" />,
         },
     ];
@@ -164,7 +180,7 @@ const HomePage = () => {
     return (
         <div className="min-h-screen bg-white">
             <Helmet>
-                <title>Home | People Voice</title>
+                <title>{t("nav.home")} | People Voice</title>
                 <meta
                     name="description"
                     content="Welcome to People Voice - Share your voice and connect with others"
@@ -187,135 +203,175 @@ const HomePage = () => {
                                 href="/"
                                 className="text-gray-800 font-medium hover:text-blue-600 transition"
                             >
-                                Home
+                                {t("nav.home")}
                             </a>
                             <a
                                 href="/"
                                 className="text-gray-600 hover:text-blue-600 transition"
                             >
-                                How It Works
+                                {t("nav.howItWorks")}
                             </a>
                             <a
                                 href="/"
                                 className="text-gray-600 hover:text-blue-600 transition"
                             >
-                                Report Issue
+                                {t("nav.reportIssue")}
                             </a>
                             <a
                                 href="/"
                                 className="text-gray-600 hover:text-blue-600 transition"
                             >
-                                Services
+                                {t("nav.services")}
                             </a>
                             <a
                                 href="/"
                                 className="text-gray-600 hover:text-blue-600 transition"
                             >
-                                About Us
+                                {t("nav.aboutUs")}
                             </a>
                         </nav>
 
                         <div className="hidden md:flex items-center space-x-4">
-                            {user ? (
+                            {/* Language Selector */}
+                            <div className="relative">
                                 <button
-                                    onClick={handleDashboardClick}
-                                    className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
+                                    onClick={() =>
+                                        setLanguageMenuOpen(!languageMenuOpen)
+                                    }
+                                    className="flex items-center px-3 py-2 rounded-lg border border-gray-300 hover:border-blue-500 transition"
                                 >
-                                    Dashboard
+                                    <Globe size={20} className="mr-2" />
+                                    <span>
+                                        {languages.find(
+                                            (lang) =>
+                                                lang.code === i18n.language
+                                        )?.name || "English"}
+                                    </span>
                                 </button>
-                            ) : (
-                                <>
-                                    <Link
-                                        to="/login"
-                                        className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium"
-                                    >
-                                        Log In
-                                    </Link>
-                                    <Link
-                                        to="/signup"
+
+                                {languageMenuOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
+                                        {languages.map((language) => (
+                                            <button
+                                                key={language.code}
+                                                onClick={() =>
+                                                    changeLanguage(
+                                                        language.code
+                                                    )
+                                                }
+                                                className="w-full text-left px-4 py-2 hover:bg-gray-100 transition"
+                                            >
+                                                {language.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="hidden md:flex items-center space-x-4">
+                                {user ? (
+                                    <button
+                                        onClick={handleDashboardClick}
                                         className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
                                     >
-                                        Sign Up
-                                    </Link>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Mobile menu button */}
-                        <button
-                            className="md:hidden text-gray-700"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        >
-                            {mobileMenuOpen ? (
-                                <X className="h-6 w-6" />
-                            ) : (
-                                <Menu className="h-6 w-6" />
-                            )}
-                        </button>
-                    </div>
-
-                    {/* Mobile Navigation */}
-                    {mobileMenuOpen && (
-                        <div className="md:hidden py-4 border-t border-gray-100">
-                            <nav className="flex flex-col space-y-4">
-                                <a
-                                    href="#"
-                                    className="text-gray-800 font-medium hover:text-blue-600 transition"
-                                >
-                                    Home
-                                </a>
-                                <a
-                                    href="#"
-                                    className="text-gray-600 hover:text-blue-600 transition"
-                                >
-                                    How It Works
-                                </a>
-                                <a
-                                    href="#"
-                                    className="text-gray-600 hover:text-blue-600 transition"
-                                >
-                                    Report Issue
-                                </a>
-                                <a
-                                    href="#"
-                                    className="text-gray-600 hover:text-blue-600 transition"
-                                >
-                                    Services
-                                </a>
-                                <a
-                                    href="#"
-                                    className="text-gray-600 hover:text-blue-600 transition"
-                                >
-                                    About Us
-                                </a>
-                                <div className="flex flex-col space-y-3 pt-3">
-                                    {user ? (
-                                        <button
-                                            onClick={handleDashboardClick}
+                                        Dashboard
+                                    </button>
+                                ) : (
+                                    <>
+                                        <Link
+                                            to="/login"
+                                            className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium"
+                                        >
+                                            {t("nav.login")}
+                                        </Link>
+                                        <Link
+                                            to="/signup"
                                             className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
                                         >
-                                            Dashboard
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <Link
-                                                to="/login"
-                                                className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium"
-                                            >
-                                                Log In
-                                            </Link>
-                                            <Link
-                                                to="/signup"
+                                            {t("nav.signup")}
+                                        </Link>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Mobile menu button */}
+                            <button
+                                className="md:hidden text-gray-700"
+                                onClick={() =>
+                                    setMobileMenuOpen(!mobileMenuOpen)
+                                }
+                            >
+                                {mobileMenuOpen ? (
+                                    <X className="h-6 w-6" />
+                                ) : (
+                                    <Menu className="h-6 w-6" />
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Mobile Navigation */}
+                        {mobileMenuOpen && (
+                            <div className="md:hidden py-4 border-t border-gray-100">
+                                <nav className="flex flex-col space-y-4">
+                                    <a
+                                        href="#"
+                                        className="text-gray-800 font-medium hover:text-blue-600 transition"
+                                    >
+                                        {t("nav.home")}
+                                    </a>
+                                    <a
+                                        href="#"
+                                        className="text-gray-600 hover:text-blue-600 transition"
+                                    >
+                                        {t("nav.howItWorks")}
+                                    </a>
+                                    <a
+                                        href="#"
+                                        className="text-gray-600 hover:text-blue-600 transition"
+                                    >
+                                        {t("nav.reportIssue")}
+                                    </a>
+                                    <a
+                                        href="#"
+                                        className="text-gray-600 hover:text-blue-600 transition"
+                                    >
+                                        {t("nav.services")}
+                                    </a>
+                                    <a
+                                        href="#"
+                                        className="text-gray-600 hover:text-blue-600 transition"
+                                    >
+                                        {t("nav.aboutUs")}
+                                    </a>
+                                    <div className="flex flex-col space-y-3 pt-3">
+                                        {user ? (
+                                            <button
+                                                onClick={handleDashboardClick}
                                                 className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
                                             >
-                                                Sign Up
-                                            </Link>
-                                        </>
-                                    )}
-                                </div>
-                            </nav>
-                        </div>
-                    )}
+                                                Dashboard
+                                            </button>
+                                        ) : (
+                                            <>
+                                                <Link
+                                                    to="/login"
+                                                    className="px-5 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition font-medium"
+                                                >
+                                                    {t("nav.login")}
+                                                </Link>
+                                                <Link
+                                                    to="/signup"
+                                                    className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition font-medium"
+                                                >
+                                                    {t("nav.signup")}
+                                                </Link>
+                                            </>
+                                        )}
+                                    </div>
+                                </nav>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -331,22 +387,20 @@ const HomePage = () => {
                     <div className="flex flex-col md:flex-row items-center">
                         <div className="md:w-1/2 mb-12 md:mb-0">
                             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-                                Your Voice. Your Community.{" "}
+                                {t("hero.title")}{" "}
                                 <span className="text-blue-200">
-                                    Real Change.
+                                    {t("hero.highlight")}
                                 </span>
                             </h1>
                             <p className="text-xl text-blue-100 mb-8 max-w-lg">
-                                Connect with your local government, report
-                                community issues, and track real progress in
-                                your neighborhood.
+                                {t("hero.subtitle")}
                             </p>
                             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                                 <button className="px-8 py-3 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition shadow-lg">
-                                    Report an Issue
+                                    {t("hero.reportButton")}
                                 </button>
                                 <button className="px-8 py-3 bg-blue-700 text-white rounded-lg font-medium hover:bg-blue-800 transition border border-blue-400">
-                                    Find Services
+                                    {t("hero.findServices")}
                                 </button>
                             </div>
                         </div>
@@ -460,7 +514,7 @@ const HomePage = () => {
                                 {issueCount.toLocaleString()}
                             </h3>
                             <p className="text-gray-600 font-medium">
-                                Issues Reported
+                                {t("stats.issuesReported")}
                             </p>
                         </div>
 
@@ -472,7 +526,7 @@ const HomePage = () => {
                                 {resolvedCount.toLocaleString()}
                             </h3>
                             <p className="text-gray-600 font-medium">
-                                Issues Resolved
+                                {t("stats.issuesResolved")}
                             </p>
                         </div>
 
@@ -484,7 +538,7 @@ const HomePage = () => {
                                 {userCount.toLocaleString()}
                             </h3>
                             <p className="text-gray-600 font-medium">
-                                Active Citizens
+                                {t("stats.activeCitizens")}
                             </p>
                         </div>
                     </div>
@@ -496,11 +550,10 @@ const HomePage = () => {
                 <div className="container mx-auto px-4">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                            Connect. Report. Resolve.
+                            {t("features.title")}
                         </h2>
                         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                            A transparent platform connecting citizens and local
-                            government to solve community issues faster.
+                            {t("features.subtitle")}
                         </p>
                     </div>
 
@@ -510,12 +563,10 @@ const HomePage = () => {
                                 <MessageCircle className="h-6 w-6" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-3">
-                                Community Reporting
+                                {t("features.communityReporting.title")}
                             </h3>
                             <p className="text-gray-600">
-                                Easily report public issues with photos,
-                                descriptions, and precise location data for
-                                faster resolution.
+                                {t("features.communityReporting.description")}
                             </p>
                         </div>
 
@@ -524,12 +575,10 @@ const HomePage = () => {
                                 <BarChart2 className="h-6 w-6" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-3">
-                                Transparent Progress
+                                {t("features.transparentProgress.title")}
                             </h3>
                             <p className="text-gray-600">
-                                Track the status of your reports from submission
-                                through verification and resolution with
-                                real-time updates.
+                                {t("features.transparentProgress.description")}
                             </p>
                         </div>
 
@@ -538,12 +587,10 @@ const HomePage = () => {
                                 <Settings className="h-6 w-6" />
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 mb-3">
-                                Service Connection
+                                {t("features.serviceConnection.title")}
                             </h3>
                             <p className="text-gray-600">
-                                Find and connect with trusted local service
-                                providers for your private household and
-                                business needs.
+                                {t("features.serviceConnection.description")}
                             </p>
                         </div>
                     </div>
@@ -1074,6 +1121,12 @@ const HomePage = () => {
                                         strokeLinejoin="round"
                                         strokeWidth={2}
                                         d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                    />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                                     />
                                 </svg>
                             </div>
