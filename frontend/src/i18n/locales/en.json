@@ -1,0 +1,113 @@
+{
+  "nav": {
+    "home": "Home",
+    "howItWorks": "How It Works",
+    "reportIssue": "Report Issue",
+    "services": "Services",
+    "aboutUs": "About Us",
+    "login": "Log In",
+    "signup": "Sign Up"
+  },
+  "hero": {
+    "title": "Your Voice. Your Community.",
+    "highlight": "Real Change",
+    "subtitle": "Connect with your local government, report community issues, and track real progress in your neighborhood.",
+    "reportButton": "Report an Issue",
+    "findServices": "Find Services"
+  },
+  "stats": {
+    "issuesReported": "Issues Reported",
+    "issuesResolved": "Issues Resolved",
+    "activeCitizens": "Active Citizens"
+  },
+  "features": {
+    "title": "Connect. Report. Resolve.",
+    "subtitle": "A transparent platform connecting citizens and local government to solve community issues faster.",
+    "communityReporting": {
+      "title": "Community Reporting",
+      "description": "Easily report public issues with photos, descriptions, and precise location data for faster resolution."
+    },
+    "transparentProgress": {
+      "title": "Transparent Progress",
+      "description": "Track the status of your reports from submission through verification and resolution with real-time updates."
+    },
+    "serviceConnection": {
+      "title": "Service Connection",
+      "description": "Find and connect with trusted local service providers for your private household and business needs."
+    }
+  },
+  "categories": {
+    "title": "What Would You Like to Report?",
+    "subtitle": "From infrastructure problems to public safety concerns, we connect you with the right authorities.",
+    "tabs": {
+      "public": "Public Issues",
+      "private": "Private Services"
+    },
+    "publicIssues": {
+      "infrastructure": {
+        "name": "Infrastructure",
+        "description": "Roads, bridges, public facilities"
+      },
+      "publicSafety": {
+        "name": "Public Safety",
+        "description": "Security concerns, hazards"
+      },
+      "environment": {
+        "name": "Environment",
+        "description": "Pollution, parks, green spaces"
+      },
+      "transportation": {
+        "name": "Transportation",
+        "description": "Public transit, traffic issues"
+      },
+      "govtServices": {
+        "name": "Govt. Services",
+        "description": "Documentation, assistance"
+      },
+      "socialWelfare": {
+        "name": "Social Welfare",
+        "description": "Community support programs"
+      }
+    },
+    "privateServices": {
+      "plumber": {
+        "name": "Plumber",
+        "description": "Find trusted plumbers near you"
+      },
+      "electrician": {
+        "name": "Electrician",
+        "description": "Certified electricians available"
+      },
+      "painter": {
+        "name": "Painter",
+        "description": "Quality painting services"
+      },
+      "doctor": {
+        "name": "Doctor",
+        "description": "Find local doctors and clinics"
+      }
+    }
+  },
+  "process": {
+    "title": "How PeopleVoice Works",
+    "subtitle": "A simple, transparent process designed to get results.",
+    "steps": {
+      "report": {
+        "title": "Report an Issue",
+        "description": "Take a photo, add location details, and describe the community problem you've spotted."
+      },
+      "review": {
+        "title": "Counselor Review",
+        "description": "Your area counselor validates the issue and commits to a resolution timeline."
+      },
+      "track": {
+        "title": "Track Progress",
+        "description": "Follow real-time status updates as your issue moves through the resolution pipeline."
+      },
+      "resolve": {
+        "title": "Verified Resolution",
+        "description": "Authorities provide photographic proof of the completed work and issue closure."
+      }
+    }
+  }
+} 
