@@ -1,15 +1,15 @@
 // Import routes
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const path = require('path');
-const config = require('./config/server.config');
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const path = require("path");
+const config = require("./config/server.config");
 
 // Import routes
-const issueRoutes = require('./routes/issue.routes');
+const issueRoutes = require("./routes/issue.routes");
 const userRoutes = require("./routes/user.routes");
-const areaRoutes = require('./routes/area.routes');
+const areaRoutes = require("./routes/area.routes");
 
 // Initialize express app
 const app = express();
@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 // Logging middleware
 if (config.nodeEnv === "development") {
@@ -32,8 +32,10 @@ if (config.nodeEnv === "development") {
 
 // API routes
 app.use("/api/auth", userRoutes);
-app.use('/api/issues', issueRoutes);
-app.use('/api/areas', areaRoutes);
+app.use("/api/issues", issueRoutes);
+app.use("/api/areas", areaRoutes);
+// In your main server file
+app.use("/api", express.static(path.join(__dirname, "../public/issues/")));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
