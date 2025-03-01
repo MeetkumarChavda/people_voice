@@ -8,6 +8,7 @@ const config = require('./config/server.config');
 // Import routes
 const tempRoutes = require('./routes/temp.routes');
 const issueRoutes = require('./routes/issue.routes');
+const areaRoutes = require('./routes/area.routes');
 
 // Initialize express app
 const app = express();
@@ -32,6 +33,7 @@ if (config.nodeEnv === 'development') {
 // API routes
 app.use('/api/v1/temp', tempRoutes);
 app.use('/api/issues', issueRoutes);
+app.use('/api/areas', areaRoutes);
 
 
 
