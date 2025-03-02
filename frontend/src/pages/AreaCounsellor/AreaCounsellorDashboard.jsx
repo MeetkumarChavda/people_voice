@@ -333,7 +333,6 @@ const AreaCounsellor = () => {
 
     setIsLoading(true);
     setError(null);
-    setAreaIssues([]);
 
     try {
       // Convert radius from kilometers to meters
@@ -371,13 +370,15 @@ const AreaCounsellor = () => {
         setError('No issues found in this area');
       }
       
+      // Update the state with the latest data from the server
       setAreaIssues(issues);
     } catch (err) {
       console.error('Error fetching area issues:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch issues';
       console.error('Error details:', errorMessage);
       setError(`Failed to fetch issues: ${errorMessage}`);
-      setAreaIssues([]);
+      // Don't clear the existing issues if the fetch fails
+      // This prevents the UI from flickering
     } finally {
       setIsLoading(false);
     }
@@ -388,37 +389,39 @@ const AreaCounsellor = () => {
     console.log('Filters changed:', filters);
   };
 
-  const handlePhaseUpdate = async (issueId, phase, phaseData) => {
+  const handlePhaseUpdate = async (updatedIssue) => {
     try {
-      console.log('Updating phase with data:', { issueId, phase, phaseData });
+      console.log('Received updated issue:', updatedIssue);
       
-      const response = await apiClient.patch(`/issues/${issueId}/phase`, {
-        phase,
-        phaseData
-      });
-
-      console.log('Phase update response:', response);
-
+      if (!updatedIssue || !updatedIssue._id) {
+        console.error('Invalid updated issue data received');
+        toast.error('Failed to update issue: Invalid data');
+        return;
+      }
+      
       // Update the issues list with the updated issue
-      const updatedIssue = response.data;
       setAreaIssues(prevIssues => 
         prevIssues.map(issue => 
-          issue._id === issueId ? updatedIssue : issue
+          issue._id === updatedIssue._id ? updatedIssue : issue
         )
       );
 
       // Show success message
-      toast.success(`Phase ${phase} updated successfully`);
+      toast.success('Issue updated successfully');
       
-      // Refresh the issues list
+      // Refresh the issues list to get the latest data from the server
       if (userLocation) {
-        fetchAreaIssues(userLocation);
+        try {
+          await fetchAreaIssues(userLocation);
+          console.log('Issues list refreshed from server');
+        } catch (refreshError) {
+          console.error('Error refreshing issues list:', refreshError);
+          // Continue with the local update if refresh fails
+        }
       }
     } catch (error) {
-      console.error('Phase update error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to update phase';
-      console.log('Error details:', errorMessage);
-      toast.error(errorMessage);
+      console.error('Error handling phase update:', error);
+      toast.error('Failed to update issue list');
     }
   };
 
@@ -535,10 +538,13 @@ const AreaCounsellor = () => {
           <IssueCard
             key={issue._id}
             issue={issue}
-            onViewDetails={() => {
-              setSelectedIssue(issue);
+            onViewDetails={(updatedIssue) => {
+              console.log('Opening issue details with data:', updatedIssue);
+              // Always use the updated issue data from the server
+              setSelectedIssue(updatedIssue);
               setIssueDetailsModal(true);
             }}
+            onUpdate={handlePhaseUpdate}
           />
         ))}
       </div>

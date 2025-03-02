@@ -21,14 +21,38 @@ import apiClient from '../../../services/api.config';
 import { toast } from 'react-hot-toast';
 
 export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
+  // Helper function to format ISO date string to YYYY-MM-DD for input fields
+  const formatDateForInput = (isoString) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return ''; // Check if date is valid
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
+    }
+  };
+
+  // Helper function to format dates for display
+  const formatDateForDisplay = (isoString) => {
+    if (!isoString) return 'Not set';
+    try {
+      return new Date(isoString).toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date for display:', error);
+      return 'Invalid date';
+    }
+  };
+
   const [phaseUpdate, setPhaseUpdate] = useState({
     verification: {
       status: issue.phaseDetails?.verification?.status || 'pending',
       comments: issue.phaseDetails?.verification?.comments || ''
     },
     etaDeadline: {
-      initialDeadline: issue.phaseDetails?.etaDeadline?.initialDeadline || '',
-      extendedDeadline: issue.phaseDetails?.etaDeadline?.extendedDeadline || '',
+      initialDeadline: formatDateForInput(issue.phaseDetails?.etaDeadline?.initialDeadline) || '',
+      extendedDeadline: formatDateForInput(issue.phaseDetails?.etaDeadline?.extendedDeadline) || '',
       isExtended: issue.phaseDetails?.etaDeadline?.isExtended || false,
       reason: issue.phaseDetails?.etaDeadline?.reason || ''
     },
@@ -41,14 +65,15 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
 
   // Update state when issue changes (modal reopens)
   useEffect(() => {
+    console.log('IssueDetailsModal received issue:', issue);
     setPhaseUpdate({
       verification: {
         status: issue.phaseDetails?.verification?.status || 'pending',
         comments: issue.phaseDetails?.verification?.comments || ''
       },
       etaDeadline: {
-        initialDeadline: issue.phaseDetails?.etaDeadline?.initialDeadline || '',
-        extendedDeadline: issue.phaseDetails?.etaDeadline?.extendedDeadline || '',
+        initialDeadline: formatDateForInput(issue.phaseDetails?.etaDeadline?.initialDeadline) || '',
+        extendedDeadline: formatDateForInput(issue.phaseDetails?.etaDeadline?.extendedDeadline) || '',
         isExtended: issue.phaseDetails?.etaDeadline?.isExtended || false,
         reason: issue.phaseDetails?.etaDeadline?.reason || ''
       },
@@ -88,69 +113,157 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
 
   const handlePhaseUpdate = async () => {
     try {
+      // Input validation
+      if (!issue._id) {
+        toast.error('Invalid issue ID');
+        return;
+      }
+
       let phaseData = {};
-      let currentPhase = issue.currentPhase;
 
-      // Handle verification phase
-      if (currentPhase === 'verification') {
-        phaseData = {
-          status: phaseUpdate.verification.status,
-          comments: phaseUpdate.verification.comments,
-          verificationDate: new Date().toISOString()
-        };
-      }
-      // Handle ETA/Deadline phase
-      else if (currentPhase === 'etaDeadline') {
-        if (!phaseUpdate.etaDeadline.initialDeadline) {
-          toast.error('Initial deadline is required');
+      // Format phase data based on the current phase
+      switch (issue.currentPhase) {
+        case 'verification':
+          if (!phaseUpdate.verification.status) {
+            toast.error('Please select a verification status');
+            return;
+          }
+          phaseData = {
+            status: phaseUpdate.verification.status,
+            comments: phaseUpdate.verification.comments,
+            verificationDate: new Date().toISOString()
+          };
+          break;
+
+        case 'etaDeadline':
+          if (!phaseUpdate.etaDeadline.initialDeadline) {
+            toast.error('Please set an initial deadline');
+            return;
+          }
+          phaseData = {
+            initialDeadline: new Date(phaseUpdate.etaDeadline.initialDeadline).toISOString(),
+            isExtended: phaseUpdate.etaDeadline.isExtended,
+            extendedDeadline: phaseUpdate.etaDeadline.extendedDeadline ? 
+              new Date(phaseUpdate.etaDeadline.extendedDeadline).toISOString() : '',
+            reason: phaseUpdate.etaDeadline.reason,
+            deadlineSetDate: new Date().toISOString()
+          };
+          break;
+
+        case 'resolution':
+          if (!phaseUpdate.resolution.status) {
+            toast.error('Please select a resolution status');
+            return;
+          }
+          phaseData = {
+            status: phaseUpdate.resolution.status,
+            comments: phaseUpdate.resolution.comments,
+            resolutionDate: new Date().toISOString()
+          };
+          break;
+
+        default:
+          toast.error('Invalid phase selected');
           return;
-        }
-        phaseData = {
-          initialDeadline: phaseUpdate.etaDeadline.initialDeadline,
-          isExtended: phaseUpdate.etaDeadline.isExtended,
-          extendedDeadline: phaseUpdate.etaDeadline.extendedDeadline,
-          reason: phaseUpdate.etaDeadline.reason
-        };
       }
-      // Handle resolution phase
-      else if (currentPhase === 'resolution') {
-        let proofFiles = [];
-        if (phaseUpdate.resolution.proof && phaseUpdate.resolution.proof.length > 0) {
-          proofFiles = await Promise.all(
-            phaseUpdate.resolution.proof.map(async (file) => {
+
+      // Show loading toast
+      const loadingToast = toast.loading('Updating phase...');
+
+      try {
+        console.log('Making API request with:', {
+          phase: issue.currentPhase,
+          phaseData
+        });
+
+        let response;
+        
+        // If resolution phase with files
+        if (issue.currentPhase === 'resolution' && phaseUpdate.resolution.proof?.length > 0) {
+          const formData = new FormData();
+          formData.append('phase', issue.currentPhase);
+          
+          // Ensure phaseData is properly stringified
+          const stringifiedPhaseData = JSON.stringify(phaseData);
+          formData.append('phaseData', stringifiedPhaseData);
+
+          // Append only File objects
+          const hasNewFiles = phaseUpdate.resolution.proof.some(file => file instanceof File);
+          
+          if (hasNewFiles) {
+            phaseUpdate.resolution.proof.forEach((file) => {
               if (file instanceof File) {
-                return await convertFileToBase64(file);
+                formData.append('proof', file);
               }
-              return file;
-            })
-          );
+            });
+          } else {
+            // If no new files, include existing proof URLs in phaseData
+            phaseData.proof = phaseUpdate.resolution.proof;
+            formData.set('phaseData', JSON.stringify(phaseData));
+          }
+
+          response = await apiClient.patch(`/issues/${issue._id}/phase`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            }
+          });
+        } else {
+          // For other phases, send JSON
+          response = await apiClient.patch(`/issues/${issue._id}/phase`, {
+            phase: issue.currentPhase,
+            phaseData
+          });
         }
 
-        phaseData = {
-          status: phaseUpdate.resolution.status,
-          comments: phaseUpdate.resolution.comments,
-          proof: proofFiles,
-          resolutionDate: new Date().toISOString()
-        };
+        // Dismiss loading toast
+        toast.dismiss(loadingToast);
+
+        console.log('API Response:', response);
+
+        // Check if response exists and has data
+        if (response) {
+          console.log('Update successful, response data:', response);
+          toast.success(`Successfully updated ${issue.currentPhase} phase`);
+          
+          // Ensure onPhaseUpdate is called with the response data
+          if (typeof onPhaseUpdate === 'function') {
+            // Make sure we're passing the complete updated issue data
+            const updatedIssue = response;
+            console.log('Calling onPhaseUpdate with:', updatedIssue);
+            onPhaseUpdate(updatedIssue);
+          } else {
+            console.warn('onPhaseUpdate is not a function');
+          }
+          
+          onClose();
+        } else {
+          console.error('No response data received');
+          throw new Error('No response data received');
+        }
+      } catch (apiError) {
+        console.error('API Error:', apiError);
+        // Dismiss loading toast
+        toast.dismiss(loadingToast);
+        throw apiError; // Re-throw to be caught by outer catch block
       }
-
-      // Make API call to update phase
-      const response = await apiClient.patch(`/issues/${issue._id}/phase`, {
-        phase: currentPhase,
-        phaseData
-      });
-
-      // Update local state with response data
-      if (response.data) {
-        // Call the parent component's update function with the updated issue
-        await onPhaseUpdate(response.data);
-        toast.success(`Phase updated successfully`);
-        onClose(); // Close modal after successful update
-      }
-
     } catch (error) {
-      console.error('Error updating phase:', error);
-      toast.error(error.response?.data?.message || 'Failed to update phase');
+      console.error('Phase update error:', error);
+      
+      // Handle different types of errors
+      if (error.response) {
+        // Server responded with error status
+        const serverError = error.response?.error || error.response?.message || error.message;
+        console.error('Server error details:', error.response);
+        toast.error(`Update failed: ${serverError}`);
+      } else if (error.request) {
+        // Request made but no response received
+        console.error('Network error - no response received');
+        toast.error('Network error: Please check your connection');
+      } else {
+        // Something else went wrong
+        console.error('Other error:', error.message);
+        toast.error(`Error: ${error.message}`);
+      }
     }
   };
 
@@ -285,9 +398,12 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                 <div>
                   <h4 className="font-medium text-gray-900">Phase 2: ETA/Deadline</h4>
                   <p className="text-sm text-gray-500">
-                    Current Deadline: {issue.phaseDetails?.etaDeadline?.initialDeadline 
-                      ? new Date(issue.phaseDetails.etaDeadline.initialDeadline).toLocaleDateString()
-                      : 'Not set'}
+                    Current Deadline: {formatDateForDisplay(issue.phaseDetails?.etaDeadline?.initialDeadline)}
+                    {issue.phaseDetails?.etaDeadline?.isExtended && issue.phaseDetails?.etaDeadline?.extendedDeadline && (
+                      <span className="ml-2 text-amber-600">
+                        (Extended to: {formatDateForDisplay(issue.phaseDetails.etaDeadline.extendedDeadline)})
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -573,6 +689,19 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
     }
   };
 
+  // Format deadline for display
+  const formatDeadline = (phaseDetails) => {
+    if (!phaseDetails?.etaDeadline) return 'No deadline set';
+    
+    if (phaseDetails.etaDeadline.isExtended && phaseDetails.etaDeadline.extendedDeadline) {
+      return `Extended to: ${new Date(phaseDetails.etaDeadline.extendedDeadline).toLocaleDateString()}`;
+    } else if (phaseDetails.etaDeadline.initialDeadline) {
+      return `Deadline: ${new Date(phaseDetails.etaDeadline.initialDeadline).toLocaleDateString()}`;
+    }
+    
+    return 'No deadline set';
+  };
+
   const getPhaseIcon = (phase) => {
     if (!phase) return <FileText className="w-5 h-5 text-gray-600" />;
 
@@ -617,13 +746,27 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
 
   const handleViewDetails = async () => {
     try {
+      // Show loading toast
+      const loadingToast = toast.loading('Loading issue details...');
+      
       // Fetch latest issue data before showing modal
       const response = await apiClient.get(`/issues/${_id}`);
-      onViewDetails(response.data);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (response) {
+        console.log('Fetched latest issue data:', response);
+        // Pass the fresh data from the server to the parent component
+        onViewDetails(response);
+      } else {
+        throw new Error('Failed to fetch issue details');
+      }
     } catch (error) {
       console.error('Error fetching issue details:', error);
       toast.error('Failed to fetch latest issue details');
-      onViewDetails(issue); // Fallback to current data if fetch fails
+      // Only fallback to current data if fetch fails
+      onViewDetails(issue);
     }
   };
 
@@ -697,6 +840,11 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
             <p className="text-sm text-gray-500">
               {phaseDetails[currentPhase]?.status || 'Pending'}
             </p>
+            {currentPhase === 'etaDeadline' || currentPhase === 'resolution' ? (
+              <p className="text-xs text-amber-600 mt-1">
+                {formatDeadline(phaseDetails)}
+              </p>
+            ) : null}
           </div>
           <button 
             onClick={handleViewDetails}
