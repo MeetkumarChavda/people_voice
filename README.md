@@ -1,7 +1,12 @@
 # People Voice
 
+![Screenshot 2025-03-02 101449](https://github.com/user-attachments/assets/65a56f05-f81a-4c3c-9c0c-22fb9a0cd77e)
+
+
 ## Team-41 EngageX
 A project aimed at bridging the gap between citizens and municipal authorities through an innovative digital platform.
+
+Demo Video : https://drive.google.com/drive/folders/1y93X5e0UedTyY9h4ayTps-ezJFJf5Zfi?usp=sharing
 
 ### Team Members
 - MeetKumar Chavda
@@ -49,7 +54,8 @@ People Voice addresses these challenges through:
 
 ### Key Features
 - **For Citizens**
-  - Easy issue registration
+  - Easy issue registration 
+  - Citizen Social Feed Priority Algorithm based on location and upvotes
   - Real-time tracking
   - Community engagement
   - Status notifications
