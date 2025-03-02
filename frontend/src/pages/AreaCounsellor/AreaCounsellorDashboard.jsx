@@ -33,7 +33,8 @@ import {
   UserCircleIcon,
   Users,
   XIcon,
-  MapPinIcon
+  MapPinIcon,
+  Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
@@ -425,6 +426,15 @@ const AreaCounsellor = () => {
     }
   };
 
+  // Add handleLogout function
+  const handleLogout = () => {
+    // Clear tokens and user data
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    // Redirect to home page
+    navigate("/");
+  };
+
   const renderStatisticsCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
@@ -562,7 +572,10 @@ const AreaCounsellor = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">CityFix</h1>
+              <div className="bg-blue-600 text-white p-2 rounded-lg mr-2">
+                <Zap size={20} />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">PeopleVoice</h1>
               <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
                 Area Counsellor
               </span>
@@ -598,10 +611,12 @@ const AreaCounsellor = () => {
                 
                 {showProfileDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
-                    <a href="#profile" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">Profile</a>
-                    <a href="#settings" className="block px-4 py-2 text-gray-700 hover:bg-gray-100">Settings</a>
-                    <div className="border-t border-gray-100 my-1"></div>
-                    <a href="#logout" className="block px-4 py-2 text-red-600 hover:bg-gray-100">Logout</a>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Logout
+                    </button>
                   </div>
                 )}
               </div>

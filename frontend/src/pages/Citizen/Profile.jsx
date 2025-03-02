@@ -59,9 +59,9 @@ const Profile = () => {
 
     // Dummy user data
     const userData = {
-        name: "Rahul Kumar",
-        location: "Koramangala, Bangalore",
-        avatar: "RK",
+        name: "Citizen",
+        location: "Nadiad",
+        avatar: "C",
         points: 3580,
         joinedDate: "January 2024",
         totalReports: 42,

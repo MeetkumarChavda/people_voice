@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import {
   AlertTriangleIcon,
@@ -23,7 +23,8 @@ import {
   ThumbsUpIcon,
   BellIcon,
   PhoneIcon,
-  StarIcon
+  StarIcon,
+  Zap
 } from 'lucide-react';
 import apiClient from '../../services/api.config';
 import { toast } from 'react-hot-toast';
@@ -42,6 +43,8 @@ const MunicipalDashboard = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const profileDropdownRef = useRef(null);
   const [issuePhaseUpdate, setIssuePhaseUpdate] = useState({
     status: '',
     comments: '',
@@ -449,6 +452,24 @@ const MunicipalDashboard = () => {
       toast.error(error.message || 'Failed to update phase');
     }
   };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/login'; // Redirect to login page
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const renderIssueDetailsModal = () => {
     if (!selectedIssue) return null;
@@ -1055,7 +1076,10 @@ const MunicipalDashboard = () => {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">CityFix</h1>
+              <div className="bg-blue-600 text-white p-2 rounded-lg mr-2">
+                <Zap size={20} />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">PeopleVoice</h1>
               <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
                 Municipal Dashboard
               </span>
@@ -1068,11 +1092,27 @@ const MunicipalDashboard = () => {
               <button className="text-gray-500 hover:text-gray-700">
                 <BellIcon className="w-6 h-6" />
               </button>
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {currentUser?.name?.[0] || 'A'}
-                </div>
-                <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+              <div className="relative" ref={profileDropdownRef}>
+                <button 
+                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                  className="flex items-center space-x-2 focus:outline-none"
+                >
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
+                    {currentUser?.name?.[0] || 'A'}
+                  </div>
+                  <ChevronDownIcon className={`w-4 h-4 text-gray-500 transition-transform ${showProfileDropdown ? 'transform rotate-180' : ''}`} />
+                </button>
+                
+                {showProfileDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100">
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

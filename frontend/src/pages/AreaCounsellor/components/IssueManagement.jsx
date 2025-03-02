@@ -21,27 +21,29 @@ import apiClient from '../../../services/api.config';
 import { toast } from 'react-hot-toast';
 
 export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
-  // Helper function to format ISO date string to YYYY-MM-DD for input fields
-  const formatDateForInput = (isoString) => {
-    if (!isoString) return '';
-    try {
-      const date = new Date(isoString);
-      if (isNaN(date.getTime())) return ''; // Check if date is valid
-      return date.toISOString().split('T')[0];
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return '';
-    }
-  };
-
   // Helper function to format dates for display
   const formatDateForDisplay = (isoString) => {
     if (!isoString) return 'Not set';
     try {
-      return new Date(isoString).toLocaleDateString();
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return 'Invalid date';
+      return date.toLocaleString();
     } catch (error) {
       console.error('Error formatting date for display:', error);
       return 'Invalid date';
+    }
+  };
+
+  // Helper function to format ISO date string to datetime-local input format
+  const formatDateForInput = (isoString) => {
+    if (!isoString) return '';
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().slice(0, 16); // Format for datetime-local input (YYYY-MM-DDThh:mm)
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '';
     }
   };
 
@@ -131,7 +133,7 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
           phaseData = {
             status: phaseUpdate.verification.status,
             comments: phaseUpdate.verification.comments,
-            verificationDate: new Date().toISOString()
+            verificationDate: new Date()
           };
           break;
 
@@ -140,13 +142,13 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
             toast.error('Please set an initial deadline');
             return;
           }
+          
           phaseData = {
-            initialDeadline: new Date(phaseUpdate.etaDeadline.initialDeadline).toISOString(),
+            initialDeadline: phaseUpdate.etaDeadline.initialDeadline,
             isExtended: phaseUpdate.etaDeadline.isExtended,
-            extendedDeadline: phaseUpdate.etaDeadline.extendedDeadline ? 
-              new Date(phaseUpdate.etaDeadline.extendedDeadline).toISOString() : '',
+            extendedDeadline: phaseUpdate.etaDeadline.extendedDeadline || null,
             reason: phaseUpdate.etaDeadline.reason,
-            deadlineSetDate: new Date().toISOString()
+            deadlineSetDate: new Date()
           };
           break;
 
@@ -158,7 +160,8 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
           phaseData = {
             status: phaseUpdate.resolution.status,
             comments: phaseUpdate.resolution.comments,
-            resolutionDate: new Date().toISOString()
+            resolutionDate: new Date(),
+            proof: phaseUpdate.resolution.proof
           };
           break;
 
@@ -218,49 +221,34 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
         // Dismiss loading toast
         toast.dismiss(loadingToast);
 
-        console.log('API Response:', response);
-
-        // Check if response exists and has data
         if (response) {
           console.log('Update successful, response data:', response);
           toast.success(`Successfully updated ${issue.currentPhase} phase`);
           
-          // Ensure onPhaseUpdate is called with the response data
           if (typeof onPhaseUpdate === 'function') {
-            // Make sure we're passing the complete updated issue data
-            const updatedIssue = response;
-            console.log('Calling onPhaseUpdate with:', updatedIssue);
-            onPhaseUpdate(updatedIssue);
-          } else {
-            console.warn('onPhaseUpdate is not a function');
+            onPhaseUpdate(response);
           }
           
           onClose();
         } else {
-          console.error('No response data received');
           throw new Error('No response data received');
         }
       } catch (apiError) {
         console.error('API Error:', apiError);
-        // Dismiss loading toast
         toast.dismiss(loadingToast);
-        throw apiError; // Re-throw to be caught by outer catch block
+        throw apiError;
       }
     } catch (error) {
       console.error('Phase update error:', error);
       
-      // Handle different types of errors
       if (error.response) {
-        // Server responded with error status
         const serverError = error.response?.error || error.response?.message || error.message;
         console.error('Server error details:', error.response);
         toast.error(`Update failed: ${serverError}`);
       } else if (error.request) {
-        // Request made but no response received
         console.error('Network error - no response received');
         toast.error('Network error: Please check your connection');
       } else {
-        // Something else went wrong
         console.error('Other error:', error.message);
         toast.error(`Error: ${error.message}`);
       }
@@ -414,8 +402,8 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                       Set Initial Deadline
                     </label>
                     <input
-                      type="date"
-                      value={phaseUpdate.etaDeadline.initialDeadline}
+                      type="datetime-local"
+                      value={formatDateForInput(phaseUpdate.etaDeadline.initialDeadline)}
                       onChange={(e) => setPhaseUpdate(prev => ({
                         ...prev,
                         etaDeadline: {
@@ -448,13 +436,13 @@ export const IssueDetailsModal = ({ issue, onClose, onPhaseUpdate }) => {
                       </div>
                       {phaseUpdate.etaDeadline.isExtended && (
                         <>
-                          <div className="mb-2">
+                          <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                               Extended Deadline
                             </label>
                             <input
-                              type="date"
-                              value={phaseUpdate.etaDeadline.extendedDeadline}
+                              type="datetime-local"
+                              value={formatDateForInput(phaseUpdate.etaDeadline.extendedDeadline)}
                               onChange={(e) => setPhaseUpdate(prev => ({
                                 ...prev,
                                 etaDeadline: {
@@ -680,12 +668,30 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
     switch (status.toLowerCase()) {
       case 'pending': return 'text-amber-600 bg-amber-50';
       case 'verified': return 'text-blue-600 bg-blue-50';
-      case 'inProgress': return 'text-purple-600 bg-purple-50';
+      case 'inprogress': return 'text-purple-600 bg-purple-50';
       case 'resolved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
-      case 'highPriority': return 'text-red-600 bg-red-50';
-      case 'redZone': return 'text-red-700 bg-red-100';
+      case 'highpriority': return 'text-red-600 bg-red-50';
+      case 'redzone': return 'text-red-700 bg-red-100';
+      case 'solved': return 'text-green-600 bg-green-50';
+      case 'escalated': return 'text-red-600 bg-red-50';
       default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  // Get the current phase status
+  const getCurrentPhaseStatus = (issue) => {
+    if (!issue.phaseDetails) return 'pending';
+    
+    switch (issue.currentPhase) {
+      case 'verification':
+        return issue.phaseDetails.verification?.status || 'pending';
+      case 'etaDeadline':
+        return issue.phaseDetails.etaDeadline?.initialDeadline ? 'inProgress' : 'pending';
+      case 'resolution':
+        return issue.phaseDetails.resolution?.status || 'pending';
+      default:
+        return 'pending';
     }
   };
 
@@ -694,9 +700,11 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
     if (!phaseDetails?.etaDeadline) return 'No deadline set';
     
     if (phaseDetails.etaDeadline.isExtended && phaseDetails.etaDeadline.extendedDeadline) {
-      return `Extended to: ${new Date(phaseDetails.etaDeadline.extendedDeadline).toLocaleDateString()}`;
+      const extendedDate = new Date(phaseDetails.etaDeadline.extendedDeadline);
+      return `Extended to: ${extendedDate.toLocaleString()}`;
     } else if (phaseDetails.etaDeadline.initialDeadline) {
-      return `Deadline: ${new Date(phaseDetails.etaDeadline.initialDeadline).toLocaleDateString()}`;
+      const initialDate = new Date(phaseDetails.etaDeadline.initialDeadline);
+      return `Deadline: ${initialDate.toLocaleString()}`;
     }
     
     return 'No deadline set';
@@ -725,7 +733,6 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
     _id,
     title = 'Untitled Issue',
     location = { address: 'No location specified', coordinates: { coordinates: [] } },
-    status = 'pending',
     currentPhase = 'verification',
     description = 'No description provided',
     createdAt = new Date(),
@@ -739,6 +746,9 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
       resolution: { status: 'pending', proof: [] }
     }
   } = issue;
+
+  // Get the current status based on the phase
+  const currentStatus = getCurrentPhaseStatus(issue);
 
   const formattedPhotos = photos.map(photo => 
     photo.startsWith('http') ? photo : `${import.meta.env.VITE_API_URL}/issues/photos/${photo}`
@@ -782,8 +792,8 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
             </p>
           </div>
         </div>
-        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusColor(status)}`}>
-          {status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending'}
+        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getStatusColor(currentStatus)}`}>
+          {currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1)}
         </span>
       </div>
 
@@ -796,7 +806,7 @@ export const IssueCard = ({ issue, onViewDetails, onUpdate }) => {
         </div>
         <div className="flex items-center">
           <ClockIcon className="w-4 h-4 mr-1" />
-          {new Date(createdAt).toLocaleDateString()}
+          {new Date(createdAt).toLocaleString()}
         </div>
       </div>
 

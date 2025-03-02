@@ -449,7 +449,7 @@ const issueController = {
                 startDate,
                 endDate,
                 page = 1,
-                limit = 10,
+                limit = 100,
                 // Custom priority weights
                 highPriorityWeight = 50,
                 redZoneWeight = 100,

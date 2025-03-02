@@ -8,6 +8,7 @@ import {
     UserCircleIcon,
     XIcon,
     InfoIcon,
+    Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
@@ -42,7 +43,7 @@ const CitizenFeed = () => {
     const navigate = useNavigate();
 
     // Function to fetch issues from API
-    const fetchIssues = async (page = 1, limit = 10, filters = {}) => {
+    const fetchIssues = async (page = 1, limit = 100, filters = {}) => {
         setIsLoading(true);
         setError(null);
         try {
@@ -645,7 +646,12 @@ const CitizenFeed = () => {
     // Update the header section to include the dropdown menu
     const renderHeader = () => (
         <div className="bg-blue-600 py-3 px-4 flex justify-between items-center text-white shadow-md transition-all duration-300">
-            <div className="font-bold text-xl">CityFix</div>
+            <div className="flex items-center">
+                <div className="bg-white text-blue-600 p-2 rounded-lg mr-2">
+                    <Zap size={20} />
+                </div>
+                <div className="font-bold text-xl">PeopleVoice</div>
+            </div>
             <div className="flex items-center space-x-3">
                 <button
                     onClick={handlePostIssueClick}
@@ -769,6 +775,13 @@ const CitizenFeed = () => {
                                 >
                                     <UserCircleIcon size={16} />
                                     <span>My Reports</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate("/profile")}
+                                    className="px-4 py-3 text-gray-600 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                                >
+                                    <UserCircleIcon size={16} />
+                                    <span>Profile</span>
                                 </button>
                             </div>
                         </div>
